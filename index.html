@@ -273,14 +273,35 @@
     display:flex;gap:10px;padding:6px 0;
     font-size:12px;line-height:1.5;
   }
-  .comment + .comment{border-top:1px solid var(--line-soft);}
   .comment .c-who{
     flex:0 0 auto;
     font-family:var(--fs-mono);font-size:10px;color:var(--muted);
     padding-top:2px;min-width:64px;
   }
   .comment .c-text{color:#c9c9c9;}
-  .comment-input{display:flex;gap:8px;margin-top:10px;}
+  .arg-groups{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:4px;}
+  .arg-col .arg-head{
+    font-family:var(--fs-mono);font-size:9px;
+    letter-spacing:.16em;text-transform:uppercase;
+    padding:4px 8px;margin-bottom:6px;
+    display:flex;justify-content:space-between;align-items:baseline;
+  }
+  .arg-col.pro .arg-head{background:var(--text);color:var(--bg);font-weight:500;}
+  .arg-col.con .arg-head{border:1px solid var(--accent);color:var(--accent);}
+  .arg-col .comment + .comment{border-top:1px solid var(--line-soft);}
+  .arg-empty{color:var(--faint);font-size:11px;padding:6px 0;font-family:var(--fs-mono);letter-spacing:.04em;}
+  .comment-input{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .side-toggle{display:flex;gap:0;}
+  .side-btn{
+    background:transparent;border:1px solid var(--line);border-left:none;
+    color:var(--muted);font-family:var(--fs-mono);font-size:9px;
+    letter-spacing:.14em;text-transform:uppercase;
+    padding:8px 12px;cursor:pointer;
+    transition:all .15s;
+  }
+  .side-btn:first-child{border-left:1px solid var(--line);}
+  .side-btn.active[data-side="pro"]{background:var(--text);color:var(--bg);border-color:var(--text);}
+  .side-btn.active[data-side="con"]{border-color:var(--accent);color:var(--accent);}
   .comment-input input{
     flex:1;background:var(--surface-2);border:1px solid var(--line);
     color:var(--text);font-family:var(--fs-ui);font-size:12px;
@@ -451,12 +472,19 @@ let notes = [];
 let theses = [
   { id:1, text:'Контент на сайт нужно публиковать каждый день — иначе SEO проседает', author:'Вы', status:'vote',
     votes:{'Аня':1,'Марина':1,'Дима':-1,'Сергей':0}, myVote:null,
-    comments:[{who:'Дима',text:'Каждый день — это 30 статей в месяц. У нас нет ресурса даже на 8.'}] },
+    comments:[
+      {who:'Аня', text:'Регулярность важнее объёма для индексации — паузы убивают SEO', type:'pro'},
+      {who:'Дима', text:'Каждый день — это 30 статей в месяц. У нас нет ресурса даже на 8.', type:'con'}
+    ] },
   { id:2, text:'Отказаться от Telegram-канала и слить аудиторию в рассылку', author:'Вы', status:'draft',
     votes:{'Марина':-1,'Аня':0}, myVote:null, comments:[] },
   { id:3, text:'Сначала тестируем 2 канала, масштабируемся после 6 недель метрик', author:'Вы', status:'final',
     votes:{'Аня':1,'Марина':1,'Дима':1,'Сергей':1,'Олег':0,'Лена':1}, myVote:null,
-    comments:[{who:'Марина',text:'Да, так мы не размажем ресурс.'},{who:'Сергей',text:'Согласен, но метрики надо зафиксить заранее.'}] },
+    comments:[
+      {who:'Марина', text:'Да, так мы не размажем ресурс.', type:'pro'},
+      {who:'Сергей', text:'Согласен, но метрики надо зафиксить заранее — иначе тест ни о чём.', type:'pro'},
+      {who:'Олег', text:'Шесть недель — это долго, квартал сгорит на тестах.', type:'con'}
+    ] },
 ];
 let nextId = 4;
 
@@ -511,11 +539,24 @@ function renderBoard(){
         <button class="vote-btn ${t.myVote===0?'active':''}" data-act="vote" data-v="0"><span class="mark">0</span><span>${zr}</span></button>
         <span class="net ${net>0?'pos':net<0?'neg':''}">Σ ${net>0?'+':''}${net}</span>
       </div>
-      <button class="comments-toggle" data-act="toggle">Комментарии · ${t.comments.length}</button>
+      <button class="comments-toggle" data-act="toggle">Аргументы · ЗА ${t.comments.filter(c=>c.type!=='con').length} / ПРОТИВ ${t.comments.filter(c=>c.type==='con').length}</button>
       <div class="comments">
-        ${t.comments.map(c=>`<div class="comment"><span class="c-who">${c.who}<span class="c-dept">${deptOf(c.who)}</span></span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('')}
+        <div class="arg-groups">
+          <div class="arg-col pro">
+            <div class="arg-head"><span>ЗА</span><span>потому что…</span></div>
+            ${t.comments.filter(c=>c.type!=='con').map(c=>`<div class="comment"><span class="c-who">${c.who}<span class="c-dept">${deptOf(c.who)}</span></span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('') || '<div class="arg-empty">—</div>'}
+          </div>
+          <div class="arg-col con">
+            <div class="arg-head"><span>ПРОТИВ</span><span>потому что…</span></div>
+            ${t.comments.filter(c=>c.type==='con').map(c=>`<div class="comment"><span class="c-who">${c.who}<span class="c-dept">${deptOf(c.who)}</span></span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('') || '<div class="arg-empty">—</div>'}
+          </div>
+        </div>
         <div class="comment-input">
-          <input type="text" placeholder="Ваш контраргумент или уточнение…" data-role="cinput">
+          <div class="side-toggle">
+            <button class="side-btn active" data-side="pro">За</button>
+            <button class="side-btn" data-side="con">Против</button>
+          </div>
+          <input type="text" placeholder="потому что…" data-role="cinput">
           <button class="btn" data-act="comment">→</button>
         </div>
       </div>`;
@@ -578,6 +619,14 @@ notesListEl.addEventListener('click', e=>{
 });
 
 boardEl.addEventListener('click', e=>{
+  const sideBtn = e.target.closest('.side-btn');
+  if(sideBtn){
+    sideBtn.closest('.side-toggle').querySelectorAll('.side-btn').forEach(b=>b.classList.remove('active'));
+    sideBtn.classList.add('active');
+    const inp = sideBtn.closest('.comment-input').querySelector('[data-role="cinput"]');
+    inp.placeholder = sideBtn.dataset.side==='con' ? 'против, потому что…' : 'за, потому что…';
+    return;
+  }
   const btn = e.target.closest('[data-act]');
   if(!btn) return;
   const card = btn.closest('.thesis');
@@ -597,7 +646,8 @@ boardEl.addEventListener('click', e=>{
     const input = card.querySelector('[data-role="cinput"]');
     const text = input.value.trim();
     if(!text) return;
-    t.comments.push({who:userName(), text});
+    const side = card.querySelector('.side-btn.active')?.dataset.side || 'pro';
+    t.comments.push({who:userName(), text, type:side});
   }
   renderBoard();
   if(act==='comment'){
@@ -634,11 +684,12 @@ setInterval(cycleTranscript, 4200);
 
 /* Симуляция: участники голосуют и комментируют сами */
 const simComments = [
-  'Поддерживаю, но с оговорками.',
-  'Не уверен, что это сработает у нас.',
-  'Можно проверить на пилоте за две недели.',
-  'Это уже обсуждали в прошлый раз — не сработало.',
-  '+, если найдём ресурс.',
+  {text:'Это самый дешёвый способ проверить гипотезу.', type:'pro'},
+  {text:'Поддерживаю, но с оговорками по срокам.', type:'pro'},
+  {text:'Можно проверить на пилоте за две недели.', type:'pro'},
+  {text:'Не уверен, что это сработает у нас с текущим ресурсом.', type:'con'},
+  {text:'Это уже обсуждали в прошлый раз — не сработало.', type:'con'},
+  {text:'Против, пока нет метрики, по которой поймём, что получилось.', type:'con'},
 ];
 setInterval(()=>{
   if(!theses.length) return;
@@ -652,7 +703,8 @@ setInterval(()=>{
   } else {
     const t = theses[Math.floor(Math.random()*theses.length)];
     const p = participants[Math.floor(Math.random()*participants.length)];
-    t.comments.push({who:p, text:simComments[Math.floor(Math.random()*simComments.length)]});
+    const c = simComments[Math.floor(Math.random()*simComments.length)];
+    t.comments.push({who:p, text:c.text, type:c.type});
     renderBoard();
   }
 }, 6000);
