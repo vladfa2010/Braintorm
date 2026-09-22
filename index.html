@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>РАССЛОЕНИЕ — второе окно звонка</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Inter+Display:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#000000;
+    --surface:#161616;
+    --surface-2:#0d0d0d;
+    --line:#222222;
+    --line-soft:#1a1a1a;
+    --text:#ffffff;
+    --muted:#868686;
+    --faint:#545454;
+    --accent:#d9ac18;
+    --good:#ffffff;
+    --fs-mono:'JetBrains Mono', monospace;
+    --fs-ui:'Inter', -apple-system, sans-serif;
+    --fs-disp:'Inter Display','Inter', sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--fs-ui);
+    font-size:13px;
+    line-height:1.45;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+
+  /* ---------- HEADER ---------- */
+  header{
+    height:52px;
+    flex:0 0 52px;
+    display:flex;
+    align-items:center;
+    gap:20px;
+    padding:0 20px;
+    border-bottom:1px solid var(--line);
+    background:var(--bg);
+  }
+  .logo{
+    font-family:var(--fs-disp);
+    font-weight:600;
+    letter-spacing:.14em;
+    font-size:13px;
+    text-transform:uppercase;
+  }
+  .logo em{font-style:normal;color:var(--faint);}
+  .call-title{
+    color:var(--muted);
+    font-size:12px;
+    border-left:1px solid var(--line);
+    padding-left:20px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .live{
+    margin-left:auto;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family:var(--fs-mono);
+    font-size:10px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--accent);
+    border:1px solid var(--line);
+    padding:5px 12px;
+  }
+  .live .dot{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--accent);
+    animation:pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .people{
+    display:flex;align-items:center;gap:10px;
+    font-size:11px;color:var(--muted);
+    font-family:var(--fs-mono);
+  }
+  .avatar{
+    width:22px;height:22px;border-radius:50%;
+    border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    font-size:9px;font-weight:700;color:var(--bg);
+    background:var(--muted);
+  }
+  .avatar.me{background:var(--text);}
+  .more-avatars{color:var(--faint);font-size:10px;}
+
+  /* ---------- MAIN SPLIT ---------- */
+  main{
+    flex:1;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    min-height:0;
+  }
+  .pane{
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+  }
+  .pane.left{border-right:1px solid var(--line);background:var(--surface-2);}
+  .pane.right{background:var(--bg);}
+
+  .pane-head{
+    flex:0 0 auto;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 20px 10px;
+  }
+  .pane-head h2{
+    font-family:var(--fs-mono);
+    font-size:10px;font-weight:500;
+    letter-spacing:.16em;text-transform:uppercase;
+    color:var(--faint);
+  }
+  .pane-head .count{
+    font-family:var(--fs-mono);font-size:10px;color:var(--faint);
+    border:1px solid var(--line);padding:2px 8px;
+  }
+
+  /* live transcript strip */
+  .transcript{
+    margin:0 20px 12px;
+    border:1px solid var(--line);
+    background:var(--surface);
+    padding:9px 12px;
+    display:flex;gap:10px;align-items:baseline;
+    min-height:38px;
+  }
+  .transcript .who{
+    font-family:var(--fs-mono);font-size:10px;color:var(--accent);
+    letter-spacing:.08em;text-transform:uppercase;flex:0 0 auto;
+  }
+  .transcript .say{
+    font-size:12px;color:var(--muted);
+    transition:opacity .35s ease;
+  }
+  .transcript .say.fade{opacity:0;}
+
+  /* notes input */
+  .composer{padding:0 20px 14px;}
+  .composer textarea{
+    width:100%;resize:none;
+    background:var(--surface);
+    border:1px solid var(--line);
+    color:var(--text);
+    font-family:var(--fs-ui);font-size:13px;line-height:1.5;
+    padding:12px 14px;height:74px;
+    outline:none;
+  }
+  .composer textarea:focus{border-color:var(--faint);}
+  .composer textarea::placeholder{color:var(--faint);}
+  .composer-row{display:flex;align-items:center;margin-top:8px;gap:10px;}
+  .kbd-hint{font-family:var(--fs-mono);font-size:10px;color:var(--faint);}
+  .btn{
+    font-family:var(--fs-mono);font-size:10px;
+    letter-spacing:.12em;text-transform:uppercase;
+    background:transparent;color:var(--text);
+    border:1px solid var(--line);
+    padding:7px 14px;cursor:pointer;
+    transition:background .15s ease,color .15s ease;
+  }
+  .btn:hover{background:var(--text);color:var(--bg);}
+  .btn.primary{margin-left:auto;background:var(--text);color:var(--bg);border-color:var(--text);}
+  .btn.primary:hover{background:transparent;color:var(--text);}
+
+  /* notes list */
+  .notes-list{
+    flex:1;overflow-y:auto;padding:0 20px 20px;
+  }
+  .note-item{
+    display:flex;align-items:flex-start;gap:10px;
+    padding:11px 0;
+    border-top:1px solid var(--line-soft);
+    animation:slidein .25s ease;
+  }
+  @keyframes slidein{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .note-text{flex:1;font-size:13px;line-height:1.5;}
+  .note-time{font-family:var(--fs-mono);font-size:9px;color:var(--faint);margin-top:3px;letter-spacing:.06em;}
+  .post-btn{
+    flex:0 0 auto;
+    width:26px;height:26px;
+    border:1px solid var(--line);background:transparent;
+    color:var(--muted);font-size:15px;line-height:1;cursor:pointer;
+    font-family:var(--fs-ui);
+    transition:background .15s,color .15s,border-color .15s;
+  }
+  .post-btn:hover{background:var(--text);color:var(--bg);border-color:var(--text);}
+  .note-item.published .post-btn{opacity:.25;pointer-events:none;}
+  .note-item.published .note-text{color:var(--faint);}
+  .empty-hint{color:var(--faint);font-size:12px;padding:18px 0;border-top:1px solid var(--line-soft);}
+
+  /* ---------- BOARD ---------- */
+  .board{
+    flex:1;overflow-y:auto;padding:4px 20px 24px;
+  }
+  .thesis{
+    border:1px solid var(--line);
+    background:var(--surface);
+    margin-bottom:12px;
+    animation:slidein .3s ease;
+  }
+  .thesis.finalized{border-color:var(--faint);}
+  .thesis-top{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 14px 0;
+  }
+  .status{
+    font-family:var(--fs-mono);font-size:9px;
+    letter-spacing:.12em;text-transform:uppercase;
+    padding:3px 8px;border:1px solid var(--line);
+    color:var(--muted);cursor:pointer;user-select:none;
+    transition:color .15s,border-color .15s;
+    background:transparent;
+  }
+  .status:hover{border-color:var(--muted);}
+  .status.vote{color:var(--accent);border-color:var(--accent);}
+  .status.final{color:var(--bg);background:var(--text);border-color:var(--text);font-weight:500;}
+  .thesis-author{
+    margin-left:auto;
+    font-family:var(--fs-mono);font-size:9px;color:var(--faint);
+    letter-spacing:.1em;text-transform:uppercase;
+  }
+  .thesis-text{
+    padding:10px 14px 12px;
+    font-size:14px;line-height:1.55;
+  }
+  .thesis-votes{
+    display:flex;align-items:center;
+    border-top:1px solid var(--line-soft);
+  }
+  .vote-btn{
+    flex:0 0 auto;
+    display:flex;align-items:center;gap:7px;
+    background:transparent;border:none;border-right:1px solid var(--line-soft);
+    color:var(--muted);font-family:var(--fs-mono);font-size:11px;
+    padding:9px 16px;cursor:pointer;
+    transition:color .15s,background .15s;
+  }
+  .vote-btn:hover{color:var(--text);}
+  .vote-btn.active{background:var(--text);color:var(--bg);}
+  .vote-btn .mark{font-size:13px;font-weight:700;font-family:var(--fs-ui);}
+  .net{
+    margin-left:auto;padding:9px 14px;
+    font-family:var(--fs-mono);font-size:11px;color:var(--faint);
+  }
+  .net.pos{color:var(--text);}
+  .net.neg{color:var(--muted);}
+
+  .comments-toggle{
+    background:transparent;border:none;border-top:1px solid var(--line-soft);
+    width:100%;text-align:left;
+    padding:8px 14px;cursor:pointer;
+    font-family:var(--fs-mono);font-size:10px;
+    letter-spacing:.1em;text-transform:uppercase;
+    color:var(--faint);
+    transition:color .15s;
+  }
+  .comments-toggle:hover{color:var(--muted);}
+  .comments{display:none;border-top:1px solid var(--line-soft);padding:10px 14px 12px;}
+  .comments.open{display:block;}
+  .comment{
+    display:flex;gap:10px;padding:6px 0;
+    font-size:12px;line-height:1.5;
+  }
+  .comment + .comment{border-top:1px solid var(--line-soft);}
+  .comment .c-who{
+    flex:0 0 auto;
+    font-family:var(--fs-mono);font-size:10px;color:var(--muted);
+    padding-top:2px;min-width:64px;
+  }
+  .comment .c-text{color:#c9c9c9;}
+  .comment-input{display:flex;gap:8px;margin-top:10px;}
+  .comment-input input{
+    flex:1;background:var(--surface-2);border:1px solid var(--line);
+    color:var(--text);font-family:var(--fs-ui);font-size:12px;
+    padding:8px 10px;outline:none;
+  }
+  .comment-input input:focus{border-color:var(--faint);}
+  .comment-input input::placeholder{color:var(--faint);}
+
+  .board-empty{
+    border:1px dashed var(--line);color:var(--faint);
+    text-align:center;padding:40px 20px;font-size:12px;line-height:1.7;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--line);}
+  ::-webkit-scrollbar-thumb:hover{background:var(--faint);}
+
+  @media (max-width:900px){
+    main{grid-template-columns:1fr;grid-template-rows:1fr 1fr;}
+    .pane.left{border-right:none;border-bottom:1px solid var(--line);}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">РАССЛОЕНИЕ<em>/01</em></div>
+  <div class="call-title">Брейншторм: контент-стратегия на Q4 — Zoom подключён</div>
+  <div class="people">
+    <div class="avatar me">ВЫ</div>
+    <div class="avatar">АК</div>
+    <div class="avatar">МД</div>
+    <div class="avatar">СП</div>
+    <span class="more-avatars">+4 онлайн</span>
+  </div>
+  <div class="live"><span class="dot"></span>LIVE · 00:42:17</div>
+</header>
+
+<main>
+  <!-- ============ LEFT: ADMIN NOTES ============ -->
+  <section class="pane left">
+    <div class="pane-head">
+      <h2>Мои заметки — видит только админ</h2>
+      <span class="count" id="notesCount">0</span>
+    </div>
+
+    <div class="transcript">
+      <span class="who" id="trWho">Марина</span>
+      <span class="say" id="trSay">Я всё ещё не понимаю, зачем нам пять каналов распределения, если мы не тянем ни один.</span>
+    </div>
+
+    <div class="composer">
+      <textarea id="noteInput" placeholder="Фиксируйте тезис по ходу звонка… например: «Контент на сайт — каждый день»"></textarea>
+      <div class="composer-row">
+        <span class="kbd-hint">ENTER ↵ — в заметки</span>
+        <button class="btn primary" id="addNoteBtn">+ Тезис</button>
+      </div>
+    </div>
+
+    <div class="notes-list" id="notesList">
+      <div class="empty-hint">Пока пусто. Пишите черновики тезисов — потом один клик, и тезис улетает на общую доску.</div>
+    </div>
+  </section>
+
+  <!-- ============ RIGHT: SHARED BOARD ============ -->
+  <section class="pane right">
+    <div class="pane-head">
+      <h2>Общая доска — видит вся команда</h2>
+      <span class="count" id="boardCount">0 тем</span>
+    </div>
+    <div class="board" id="board"></div>
+  </section>
+</main>
+
+<script>
+/* ================= STATE ================= */
+let notes = [];
+let theses = [
+  { id:1, text:'Контент на сайт нужно публиковать каждый день — иначе SEO проседает', author:'Вы', status:'vote',
+    votes:{'Аня':1,'Марина':1,'Дима':-1,'Сергей':0}, myVote:null,
+    comments:[{who:'Дима',text:'Каждый день — это 30 статей в месяц. У нас нет ресурса даже на 8.'}] },
+  { id:2, text:'Отказаться от Telegram-канала и слить аудиторию в рассылку', author:'Вы', status:'draft',
+    votes:{'Марина':-1,'Аня':0}, myVote:null, comments:[] },
+  { id:3, text:'Сначала тестируем 2 канала, масштабируемся после 6 недель метрик', author:'Вы', status:'final',
+    votes:{'Вы':1,'Аня':1,'Марина':1,'Дима':1,'Сергей':1,'Олег':0,'Лена':1}, myVote:1,
+    comments:[{who:'Марина',text:'Да, так мы не размажем ресурс.'},{who:'Сергей',text:'Согласен, но метрики надо зафиксить заранее.'}] },
+];
+let nextId = 4;
+
+const STATUS = { draft:'Черновик', vote:'На голосовании', final:'Финализировано' };
+const nextStatus = { draft:'vote', vote:'final', final:'draft' };
+
+const participants = ['Аня','Дима','Марина','Сергей','Олег','Лена'];
+
+/* ================= RENDER ================= */
+const boardEl = document.getElementById('board');
+const notesListEl = document.getElementById('notesList');
+const notesCountEl = document.getElementById('notesCount');
+const boardCountEl = document.getElementById('boardCount');
+
+function netScore(t){
+  return Object.values(t.votes).reduce((a,b)=>a+b,0);
+}
+
+function renderBoard(){
+  boardCountEl.textContent = theses.length + (theses.length===1?' тема':' тем');
+  boardEl.innerHTML = '';
+  if(!theses.length){
+    boardEl.innerHTML = '<div class="board-empty">Доска пуста.<br>Опубликуйте первый тезис из своих заметок — кнопка «+» на заметке.</div>';
+    return;
+  }
+  theses.forEach(t=>{
+    const card = document.createElement('div');
+    card.className = 'thesis' + (t.status==='final' ? ' finalized' : '');
+
+    const up = Object.values(t.votes).filter(v=>v===1).length;
+    const dn = Object.values(t.votes).filter(v=>v===-1).length;
+    const zr = Object.values(t.votes).filter(v=>v===0).length;
+    const net = netScore(t);
+
+    card.innerHTML = `
+      <div class="thesis-top">
+        <button class="status ${t.status==='vote'?'vote':''} ${t.status==='final'?'final':''}" data-act="status" title="Сменить статус">${STATUS[t.status]}</button>
+        <span class="thesis-author">${t.author==='Вы'?'Админ · вы':'· '+t.author}</span>
+      </div>
+      <div class="thesis-text">${escapeHtml(t.text)}</div>
+      <div class="thesis-votes">
+        <button class="vote-btn ${t.myVote===1?'active':''}" data-act="vote" data-v="1"><span class="mark">+1</span><span>${up}</span></button>
+        <button class="vote-btn ${t.myVote===-1?'active':''}" data-act="vote" data-v="-1"><span class="mark">−1</span><span>${dn}</span></button>
+        <button class="vote-btn ${t.myVote===0?'active':''}" data-act="vote" data-v="0"><span class="mark">0</span><span>${zr}</span></button>
+        <span class="net ${net>0?'pos':net<0?'neg':''}">Σ ${net>0?'+':''}${net}</span>
+      </div>
+      <button class="comments-toggle" data-act="toggle">Комментарии · ${t.comments.length}</button>
+      <div class="comments">
+        ${t.comments.map(c=>`<div class="comment"><span class="c-who">${c.who}</span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('')}
+        <div class="comment-input">
+          <input type="text" placeholder="Ваш контраргумент или уточнение…" data-role="cinput">
+          <button class="btn" data-act="comment">→</button>
+        </div>
+      </div>`;
+    boardEl.appendChild(card);
+  });
+}
+
+function renderNotes(){
+  notesCountEl.textContent = notes.length;
+  notesListEl.innerHTML = '';
+  if(!notes.length){
+    notesListEl.innerHTML = '<div class="empty-hint">Пока пусто. Пишите черновики тезисов — потом один клик, и тезис улетает на общую доску.</div>';
+    return;
+  }
+  notes.forEach(n=>{
+    const el = document.createElement('div');
+    el.className = 'note-item' + (n.published ? ' published' : '');
+    el.innerHTML = `
+      <div style="flex:1">
+        <div class="note-text">${escapeHtml(n.text)}</div>
+        <div class="note-time">${n.time}${n.published ? ' · опубликовано на доске' : ''}</div>
+      </div>
+      <button class="post-btn" data-id="${n.id}" title="Опубликовать на доске">+</button>`;
+    notesListEl.appendChild(el);
+  });
+}
+
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ================= ACTIONS ================= */
+const noteInput = document.getElementById('noteInput');
+
+function addNote(){
+  const text = noteInput.value.trim();
+  if(!text) return;
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  notes.unshift({ id:Date.now(), text, time:hh+':'+mm, published:false });
+  noteInput.value = '';
+  renderNotes();
+}
+document.getElementById('addNoteBtn').addEventListener('click', addNote);
+noteInput.addEventListener('keydown', e=>{
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); addNote(); }
+});
+
+notesListEl.addEventListener('click', e=>{
+  const btn = e.target.closest('.post-btn');
+  if(!btn) return;
+  const note = notes.find(n=>n.id == btn.dataset.id);
+  if(!note || note.published) return;
+  note.published = true;
+  theses.unshift({ id:nextId++, text:note.text, author:'Вы', status:'draft', votes:{}, myVote:null, comments:[] });
+  renderNotes();
+  renderBoard();
+  boardEl.parentElement.scrollTop = 0;
+});
+
+boardEl.addEventListener('click', e=>{
+  const btn = e.target.closest('[data-act]');
+  if(!btn) return;
+  const card = btn.closest('.thesis');
+  const idx = Array.from(boardEl.children).indexOf(card);
+  const t = theses[idx];
+  if(!t) return;
+
+  const act = btn.dataset.act;
+  if(act==='vote'){
+    const v = parseInt(btn.dataset.v,10);
+    if(t.myVote===v){ delete t.votes['Вы']; t.myVote=null; }
+    else { t.votes['Вы']=v; t.myVote=v; }
+  }
+  if(act==='status'){ t.status = nextStatus[t.status]; }
+  if(act==='toggle'){ btn.nextElementSibling.classList.toggle('open'); return; }
+  if(act==='comment'){
+    const input = card.querySelector('[data-role="cinput"]');
+    const text = input.value.trim();
+    if(!text) return;
+    t.comments.push({who:'Вы', text});
+  }
+  renderBoard();
+  if(act==='comment'){
+    const c = boardEl.children[idx].querySelector('.comments');
+    c.classList.add('open');
+    c.querySelector('[data-role="cinput"]').focus();
+  }
+});
+
+/* ================= SIMULATION: звонок идёт ================= */
+const transcript = [
+  ['Марина','Я всё ещё не понимаю, зачем нам пять каналов распределения, если мы не тянем ни один.'],
+  ['Дима','Если писать каждый день, качество упадёт. Лучше два сильных текста в неделю.'],
+  ['Аня','SEO не про объём, а про регулярность. Один текст в день — минимум для индексации.'],
+  ['Сергей','Мой болезненный опыт: мы запускали три канала сразу и все три умерли.'],
+  ['Олег','А давайте просто возьмём самый дешёвый канал и зальём туда всё?'],
+  ['Марина','Давайте без «давайте просто». Нам нужно решение, а не эксперимент ради эксперимента.'],
+  ['Дима','Я готов вести сайт, но мне нужен редактор. Одному не потяну.'],
+  ['Аня','Редактора можно взять на аутрич — вопрос бюджета, а не ресурса.'],
+];
+let trIdx = 0;
+function cycleTranscript(){
+  const who = document.getElementById('trWho');
+  const say = document.getElementById('trSay');
+  say.classList.add('fade');
+  setTimeout(()=>{
+    trIdx = (trIdx+1) % transcript.length;
+    who.textContent = transcript[trIdx][0];
+    say.textContent = transcript[trIdx][1];
+    say.classList.remove('fade');
+  }, 350);
+}
+setInterval(cycleTranscript, 4200);
+
+/* Симуляция: участники голосуют и комментируют сами */
+const simComments = [
+  'Поддерживаю, но с оговорками.',
+  'Не уверен, что это сработает у нас.',
+  'Можно проверить на пилоте за две недели.',
+  'Это уже обсуждали в прошлый раз — не сработало.',
+  '+, если найдём ресурс.',
+];
+setInterval(()=>{
+  if(!theses.length) return;
+  if(Math.random() < 0.55){
+    const t = theses[Math.floor(Math.random()*theses.length)];
+    const p = participants[Math.floor(Math.random()*participants.length)];
+    if(!(p in t.votes)){
+      t.votes[p] = [1,1,0,-1][Math.floor(Math.random()*4)];
+      renderBoard();
+    }
+  } else {
+    const t = theses[Math.floor(Math.random()*theses.length)];
+    const p = participants[Math.floor(Math.random()*participants.length)];
+    t.comments.push({who:p, text:simComments[Math.floor(Math.random()*simComments.length)]});
+    renderBoard();
+  }
+}, 6000);
+
+/* ================= INIT ================= */
+renderNotes();
+renderBoard();
+</script>
+</body>
+</html>
