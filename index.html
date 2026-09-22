@@ -317,6 +317,13 @@
     border:1px dashed var(--line);color:var(--faint);
     text-align:center;padding:40px 20px;font-size:12px;line-height:1.7;
   }
+  .composer.propose textarea{height:46px;}
+  .composer.propose .btn.primary{margin-left:auto;background:transparent;color:var(--text);border-color:var(--line);}
+  .composer.propose .btn.primary:hover{background:var(--text);color:var(--bg);}
+  .note-from{
+    font-family:var(--fs-mono);font-size:9px;color:var(--accent);
+    letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;
+  }
 
   /* ---------- JOIN SCREEN ---------- */
   .join{
@@ -465,6 +472,15 @@
       <h2>Общая доска — видит вся команда</h2>
       <span class="count" id="boardCount">0 тем</span>
     </div>
+
+    <div class="composer propose">
+      <textarea id="proposeInput" placeholder="У вас есть свой тезис? Предложите — админ получит на модерацию…"></textarea>
+      <div class="composer-row">
+        <span class="kbd-hint">Тезис попадёт в очередь админа, не сразу на доску</span>
+        <button class="btn" id="proposeBtn">Предложить тезис</button>
+      </div>
+    </div>
+
     <div class="board" id="board"></div>
   </section>
 </main>
@@ -585,6 +601,7 @@ function renderNotes(){
     el.className = 'note-item' + (n.published ? ' published' : '');
     el.innerHTML = `
       <div style="flex:1">
+        ${n.fromName ? `<div class="note-from">Предложено · ${n.fromName}${n.fromDept ? ' · ' + n.fromDept : ''}</div>` : ''}
         <div class="note-text">${escapeHtml(n.text)}</div>
         <div class="note-time">${n.time}${n.published ? ' · опубликовано на доске' : ''}</div>
       </div>
@@ -615,13 +632,33 @@ noteInput.addEventListener('keydown', e=>{
   if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); addNote(); }
 });
 
+/* предложение тезиса от слушателя -> очередь админа */
+const proposeInput = document.getElementById('proposeInput');
+function proposeThesis(fromName, fromDept, text){
+  text = (text ?? proposeInput.value).trim();
+  if(!text) return;
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  notes.unshift({ id:Date.now(), text, time:hh+':'+mm, published:false,
+                  fromName:fromName ?? userName(), fromDept:fromDept ?? (user ? user.dept : '') });
+  proposeInput.value = '';
+  proposeInput.placeholder = 'Отправлено админу на модерацию ✓';
+  setTimeout(()=>{ proposeInput.placeholder = 'У вас есть свой тезис? Предложите — админ получит на модерацию…'; }, 2200);
+  renderNotes();
+}
+document.getElementById('proposeBtn').addEventListener('click', ()=>proposeThesis());
+proposeInput.addEventListener('keydown', e=>{
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); proposeThesis(); }
+});
+
 notesListEl.addEventListener('click', e=>{
   const btn = e.target.closest('.post-btn');
   if(!btn) return;
   const note = notes.find(n=>n.id == btn.dataset.id);
   if(!note || note.published) return;
   note.published = true;
-  theses.unshift({ id:nextId++, text:note.text, author:userName(), status:'draft', votes:{}, myVote:null, comments:[] });
+  theses.unshift({ id:nextId++, text:note.text, author:note.fromName || userName(), status:'draft', votes:{}, myVote:null, comments:[] });
   renderNotes();
   renderBoard();
   boardEl.parentElement.scrollTop = 0;
@@ -704,6 +741,18 @@ const simComments = [
   {text:'Это про все каналы сразу или только про сайт?', type:'q'},
   {text:'Когда дедлайн? Без даты это декларация.', type:'q'},
 ];
+/* Симуляция: участники иногда предлагают свои тезисы */
+const simProposals = [
+  'Выделить отдельный бюджет на тесты, иначе все обсуждения теоретические',
+  'Пригласить на следующую встречу человека из продаж — он знает реальный контент-запрос',
+  'Писать контент не «про продукт», а про боли клиента',
+];
+setInterval(()=>{
+  if(!user || user.role!=='admin') return; // предложения заметны админу
+  const p = participants[Math.floor(Math.random()*participants.length)];
+  proposeThesis(p, depts[p], simProposals[Math.floor(Math.random()*simProposals.length)]);
+}, 15000);
+
 setInterval(()=>{
   if(!theses.length) return;
   if(Math.random() < 0.55){
