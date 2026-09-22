@@ -191,11 +191,16 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 
 # ---------- app ----------
 
+async def index(request: web.Request) -> web.FileResponse:
+    return web.FileResponse(STATIC_DIR / "index.html")
+
+
 app = web.Application()
 app.router.add_get("/api/rooms", list_rooms)
 app.router.add_post("/api/rooms", create_room)
 app.router.add_get("/ws", ws_handler)
-app.router.add_static("/", STATIC_DIR, show_index=True)
+app.router.add_get("/", index)
+app.router.add_static("/", STATIC_DIR)
 
 if __name__ == "__main__":
     web.run_app(app, host="127.0.0.1", port=8787)
