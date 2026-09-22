@@ -383,6 +383,70 @@
   main.solo{grid-template-columns:1fr;}
   main.solo .pane.left{display:none;}
 
+  /* ---------- ADMIN TABS ---------- */
+  .tabsbar{
+    display:none;
+    align-items:center;gap:0;
+    border-bottom:1px solid var(--line);
+    padding:0 12px;height:40px;flex:0 0 40px;
+    background:var(--surface-2);
+    overflow-x:auto;
+  }
+  .tabsbar.on{display:flex;}
+  .tab{
+    display:flex;align-items:center;gap:8px;
+    height:100%;padding:0 14px;
+    border-right:1px solid var(--line-soft);
+    color:var(--muted);font-family:var(--fs-mono);font-size:11px;
+    cursor:pointer;white-space:nowrap;user-select:none;
+    border-top:2px solid transparent;
+    transition:color .15s,border-color .15s;
+  }
+  .tab:hover{color:var(--text);}
+  .tab.active{color:var(--text);border-top-color:var(--text);background:var(--bg);}
+  .tab .tid{color:var(--faint);font-size:9px;}
+  .tab.active .tid{color:var(--muted);}
+  .tab-new{
+    height:100%;padding:0 14px;
+    background:transparent;border:none;border-right:1px solid var(--line-soft);
+    color:var(--accent);font-size:16px;cursor:pointer;
+    font-family:var(--fs-ui);
+  }
+  .tab-new:hover{background:var(--surface);}
+  .copy-link{
+    margin-left:auto;
+    background:transparent;border:1px solid var(--line);
+    color:var(--muted);font-family:var(--fs-mono);font-size:9px;
+    letter-spacing:.12em;text-transform:uppercase;
+    padding:5px 10px;cursor:pointer;white-space:nowrap;
+    transition:all .15s;
+  }
+  .copy-link:hover{color:var(--text);border-color:var(--muted);}
+
+  /* ---------- ROOMS MANAGER ---------- */
+  .rooms{
+    position:fixed;inset:0;z-index:90;
+    background:var(--bg);
+    display:none;align-items:center;justify-content:center;
+  }
+  .rooms.on{display:flex;}
+  .rooms-card{width:480px;border:1px solid var(--line);background:var(--surface);padding:36px;}
+  .rooms-list{margin-top:20px;}
+  .room-row{
+    display:flex;align-items:center;gap:12px;
+    padding:12px 14px;border:1px solid var(--line-soft);
+    border-top:none;cursor:pointer;transition:background .15s;
+  }
+  .room-row:first-child{border-top:1px solid var(--line-soft);}
+  .room-row:hover{background:var(--surface-2);}
+  .room-row .r-title{font-size:13px;}
+  .room-row .r-id{font-family:var(--fs-mono);font-size:10px;color:var(--faint);margin-top:2px;}
+  .room-row .r-meta{
+    margin-left:auto;text-align:right;
+    font-family:var(--fs-mono);font-size:10px;color:var(--muted);
+  }
+  .rooms-empty{color:var(--faint);font-size:12px;padding:20px;border:1px dashed var(--line);text-align:center;line-height:1.7;}
+
   /* scrollbar */
   ::-webkit-scrollbar{width:8px;}
   ::-webkit-scrollbar-track{background:transparent;}
@@ -429,16 +493,25 @@
 <header>
   <div class="logo">РАССЛОЕНИЕ<em>/01</em></div>
   <div class="call-title">Брейншторм: контент-стратегия на Q4 — Zoom подключён</div>
-  <div class="people">
-    <span class="dept-tag" id="meDept" style="display:none"></span>
-    <div class="avatar me" id="meAvatar">·</div>
-    <div class="avatar">АК</div>
-    <div class="avatar">МД</div>
-    <div class="avatar">СП</div>
-    <span class="more-avatars">+4 онлайн</span>
-  </div>
-  <div class="live"><span class="dot"></span>LIVE · 00:42:17</div>
+  <div class="people" id="presence"></div>
+  <div class="live"><span class="dot"></span>LIVE · <span id="liveTimer">00:00:00</span></div>
 </header>
+
+<!-- ============ ADMIN TABS ============ -->
+<div class="tabsbar" id="tabsBar">
+  <button class="tab-new" id="newRoomBtn" title="Новый диалог">+</button>
+  <button class="copy-link" id="copyLinkBtn">Скопировать ссылку</button>
+</div>
+
+<!-- ============ ROOMS MANAGER ============ -->
+<div class="rooms" id="roomsScreen">
+  <div class="rooms-card">
+    <div class="logo">РАССЛОЕНИЕ<em>/01</em></div>
+    <p class="join-sub">Диалоги на сервере. Ссылку на конкретный диалог отправьте команде — именно по ней все попадут в общую доску.</p>
+    <button class="btn primary join-btn" id="createRoomBtn" style="margin-top:0">+ Новый диалог</button>
+    <div class="rooms-list" id="roomsList"></div>
+  </div>
+</div>
 
 <main class="solo" id="mainGrid">
   <!-- ============ LEFT: ADMIN NOTES ============ -->
@@ -486,40 +559,147 @@
 </main>
 
 <script>
-/* ================= STATE ================= */
-let notes = [];
-let theses = [
-  { id:1, text:'Контент на сайт нужно публиковать каждый день — иначе SEO проседает', author:'Вы', status:'vote',
-    votes:{'Аня':1,'Марина':1,'Дима':-1,'Сергей':0}, myVote:null,
-    comments:[
-      {who:'Аня', text:'Регулярность важнее объёма для индексации — паузы убивают SEO', type:'pro'},
-      {who:'Дима', text:'Каждый день — это 30 статей в месяц. У нас нет ресурса даже на 8.', type:'con'}
-    ] },
-  { id:2, text:'Отказаться от Telegram-канала и слить аудиторию в рассылку', author:'Вы', status:'draft',
-    votes:{'Марина':-1,'Аня':0}, myVote:null,
-    comments:[{who:'Лена', text:'А что делать с 2 тысячами текущих подписчиков канала?', type:'q'}] },
-  { id:3, text:'Сначала тестируем 2 канала, масштабируемся после 6 недель метрик', author:'Вы', status:'final',
-    votes:{'Аня':1,'Марина':1,'Дима':1,'Сергей':1,'Олег':0,'Лена':1}, myVote:null,
-    comments:[
-      {who:'Марина', text:'Да, так мы не размажем ресурс.', type:'pro'},
-      {who:'Сергей', text:'Согласен, но метрики надо зафиксить заранее — иначе тест ни о чём.', type:'pro'},
-      {who:'Олег', text:'Шесть недель — это долго, квартал сгорит на тестах.', type:'con'}
-    ] },
-];
-let nextId = 4;
-
-const STATUS = { draft:'Черновик', vote:'На голосовании', final:'Финализировано' };
-const nextStatus = { draft:'vote', vote:'final', final:'draft' };
-
-const participants = ['Аня','Дима','Марина','Сергей','Олег','Лена'];
-const depts = {Аня:'Маркетинг',Дима:'Разработка',Марина:'Продукт',Сергей:'Продажи',Олег:'Дизайн',Лена:'Аналитика'};
-let user = null;
-
-function userName(){ return user ? user.name : 'Вы'; }
-function deptOf(who){
-  if(user && who===user.name) return user.dept;
-  return depts[who] || '';
+/* ================= HELPERS ================= */
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+const STATUS = { draft:'Черновик', vote:'На голосовании', final:'Финализировано' };
+
+/* ================= SESSION ================= */
+const qs = new URLSearchParams(location.search);
+let roomId = qs.get('r') || '';
+let user = null;
+try{ user = JSON.parse(localStorage.getItem('bt_user')||'null'); }catch(e){}
+let state = null;
+let ws = null;
+let meetingStart = Date.now();
+
+/* ================= TABS ================= */
+let tabs = [];
+try{ tabs = JSON.parse(localStorage.getItem('bt_tabs')||'[]'); }catch(e){}
+function saveTabs(){ localStorage.setItem('bt_tabs', JSON.stringify(tabs)); }
+function addTab(id, title){
+  if(!tabs.find(t=>t.id===id)){ tabs.push({id, title}); saveTabs(); }
+}
+function renderTabs(){
+  const bar = document.getElementById('tabsBar');
+  if(!user || user.role!=='admin'){ bar.classList.remove('on'); return; }
+  bar.classList.add('on');
+  bar.querySelectorAll('.tab').forEach(el=>el.remove());
+  const copyBtn = document.getElementById('copyLinkBtn');
+  tabs.forEach(t=>{
+    const el = document.createElement('div');
+    el.className = 'tab' + (t.id===roomId ? ' active' : '');
+    el.innerHTML = `<span>${escapeHtml(t.title)}</span><span class="tid">#${t.id.slice(-6)}</span>`;
+    el.onclick = ()=>{ location.href = '?r='+t.id; };
+    bar.insertBefore(el, copyBtn);
+  });
+}
+document.getElementById('copyLinkBtn').addEventListener('click', ()=>{
+  navigator.clipboard.writeText(location.href).then(()=>{
+    const b = document.getElementById('copyLinkBtn');
+    b.textContent = 'Ссылка скопирована ✓';
+    setTimeout(()=>b.textContent='Скопировать ссылку', 1600);
+  });
+});
+async function createRoom(){
+  const r = await fetch('/api/rooms', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({})});
+  const d = await r.json();
+  addTab(d.id, d.title);
+  location.href = '?r='+d.id;
+}
+document.getElementById('newRoomBtn').addEventListener('click', createRoom);
+document.getElementById('createRoomBtn').addEventListener('click', createRoom);
+
+/* ================= ROOMS MANAGER ================= */
+async function openRoomsManager(){
+  renderTabs();
+  const scr = document.getElementById('roomsScreen');
+  scr.classList.add('on');
+  const list = document.getElementById('roomsList');
+  const r = await fetch('/api/rooms');
+  const rooms = await r.json();
+  if(!rooms.length){
+    list.innerHTML = '<div class="rooms-empty">Пока нет ни одного диалога.<br>Создайте первый — и отправьте ссылку команде.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  rooms.forEach(rm=>{
+    const row = document.createElement('div');
+    row.className = 'room-row';
+    const d = new Date(rm.createdAt*1000);
+    row.innerHTML = `
+      <div>
+        <div class="r-title">${escapeHtml(rm.title)}</div>
+        <div class="r-id">?r=${rm.id}</div>
+      </div>
+      <div class="r-meta">${rm.theses} тем · ${rm.online} онлайн<br>${d.toLocaleDateString('ru-RU')} ${d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</div>`;
+    row.onclick = ()=>{ addTab(rm.id, rm.title); location.href='?r='+rm.id; };
+    list.appendChild(row);
+  });
+}
+
+/* ================= JOIN ================= */
+let pickedRole = 'participant';
+document.querySelectorAll('.role').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.role').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    pickedRole = b.dataset.role;
+  });
+});
+
+function join(){
+  const nameInput = document.getElementById('joinName');
+  const name = nameInput.value.trim();
+  if(!name){ nameInput.focus(); nameInput.style.borderColor = '#d9ac18'; return; }
+  user = { name, dept: document.getElementById('joinDept').value, role: pickedRole };
+  localStorage.setItem('bt_user', JSON.stringify(user));
+  document.getElementById('joinScreen').classList.add('hidden');
+  afterJoin();
+}
+document.getElementById('joinBtn').addEventListener('click', join);
+document.getElementById('joinName').addEventListener('keydown', e=>{
+  if(e.key==='Enter') join();
+});
+
+function afterJoin(){
+  if(user.role === 'admin'){
+    document.getElementById('mainGrid').classList.remove('solo');
+    renderTabs();
+  }
+  if(roomId){
+    addTab(roomId, 'Диалог ···'+roomId.slice(-4));
+    connect();
+  } else if(user.role === 'admin'){
+    openRoomsManager();
+  } else {
+    document.getElementById('roomsScreen').classList.add('on');
+    document.getElementById('roomsList').innerHTML =
+      '<div class="rooms-empty">Участнику нужна ссылка на диалог.<br>Попросите её у админа встречи — она выглядит как ?r=847201944673012.</div>';
+  }
+}
+
+/* ================= WEBSOCKET ================= */
+function connect(){
+  const proto = location.protocol==='https:' ? 'wss://' : 'ws://';
+  ws = new WebSocket(proto + location.host + '/ws?room=' + roomId);
+  ws.onopen = ()=> send({t:'join', name:user.name, dept:user.dept, role:user.role});
+  ws.onmessage = ev=>{
+    const msg = JSON.parse(ev.data);
+    if(msg.t==='state'){
+      state = msg.room;
+      meetingStart = (state.createdAt||0)*1000 || meetingStart;
+      document.querySelector('.call-title').textContent =
+        state.title + ' · ссылка для команды ?r=' + roomId;
+      renderAll();
+    } else if(msg.t==='error'){
+      document.querySelector('.call-title').textContent = 'Диалог не найден — создайте новый';
+    }
+  };
+  ws.onclose = ()=> setTimeout(connect, 1500);
+}
+function send(o){ if(ws && ws.readyState===1) ws.send(JSON.stringify(o)); }
 
 /* ================= RENDER ================= */
 const boardEl = document.getElementById('board');
@@ -527,53 +707,49 @@ const notesListEl = document.getElementById('notesList');
 const notesCountEl = document.getElementById('notesCount');
 const boardCountEl = document.getElementById('boardCount');
 
-function netScore(t){
-  return Object.values(t.votes).reduce((a,b)=>a+b,0);
-}
+function netScore(t){ return Object.values(t.votes).reduce((a,b)=>a+b,0); }
 
 function renderBoard(){
+  const theses = state ? state.theses : [];
   boardCountEl.textContent = theses.length + (theses.length===1?' тема':' тем');
   boardEl.innerHTML = '';
   if(!theses.length){
-    boardEl.innerHTML = '<div class="board-empty">Доска пуста.<br>Опубликуйте первый тезис из своих заметок — кнопка «+» на заметке.</div>';
+    boardEl.innerHTML = '<div class="board-empty">Доска пуста.<br>Опубликуйте первый тезис из заметок — кнопка «+» на заметке,<br>или участник предложит свой через поле выше.</div>';
     return;
   }
   theses.forEach(t=>{
     const card = document.createElement('div');
     card.className = 'thesis' + (t.status==='final' ? ' finalized' : '');
-
     const up = Object.values(t.votes).filter(v=>v===1).length;
     const dn = Object.values(t.votes).filter(v=>v===-1).length;
     const zr = Object.values(t.votes).filter(v=>v===0).length;
     const net = netScore(t);
-
+    const myVote = t.votes[user.name];
+    const pro = t.comments.filter(c=>c.type==='pro');
+    const con = t.comments.filter(c=>c.type==='con');
+    const qq  = t.comments.filter(c=>c.type==='q');
+    const cmts = arr => arr.map(c=>`<div class="comment"><span class="c-who">${escapeHtml(c.who)}<span class="c-dept">${escapeHtml(c.dept||'')}</span></span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('') || '<div class="arg-empty">—</div>';
     card.innerHTML = `
       <div class="thesis-top">
         <button class="status ${t.status==='vote'?'vote':''} ${t.status==='final'?'final':''}" data-act="status" title="Сменить статус">${STATUS[t.status]}</button>
-        <span class="thesis-author">${t.author==='Вы'?'Админ':t.author}</span>
+        <span class="thesis-author">${escapeHtml(t.author)}</span>
       </div>
       <div class="thesis-text">${escapeHtml(t.text)}</div>
       <div class="thesis-votes">
-        <button class="vote-btn ${t.myVote===1?'active':''}" data-act="vote" data-v="1"><span class="mark">+1</span><span>${up}</span></button>
-        <button class="vote-btn ${t.myVote===-1?'active':''}" data-act="vote" data-v="-1"><span class="mark">−1</span><span>${dn}</span></button>
-        <button class="vote-btn ${t.myVote===0?'active':''}" data-act="vote" data-v="0"><span class="mark">0</span><span>${zr}</span></button>
+        <button class="vote-btn ${myVote===1?'active':''}" data-act="vote" data-v="1"><span class="mark">+1</span><span>${up}</span></button>
+        <button class="vote-btn ${myVote===-1?'active':''}" data-act="vote" data-v="-1"><span class="mark">−1</span><span>${dn}</span></button>
+        <button class="vote-btn ${myVote===0?'active':''}" data-act="vote" data-v="0"><span class="mark">0</span><span>${zr}</span></button>
         <span class="net ${net>0?'pos':net<0?'neg':''}">Σ ${net>0?'+':''}${net}</span>
       </div>
-      <button class="comments-toggle" data-act="toggle">Обсуждение · ЗА ${t.comments.filter(c=>c.type==='pro'||!c.type).length} / ПРОТИВ ${t.comments.filter(c=>c.type==='con').length} / ? ${t.comments.filter(c=>c.type==='q').length}</button>
+      <button class="comments-toggle" data-act="toggle">Обсуждение · ЗА ${pro.length} / ПРОТИВ ${con.length} / ? ${qq.length}</button>
       <div class="comments">
         <div class="arg-groups">
-          <div class="arg-col pro">
-            <div class="arg-head"><span>ЗА</span><span>потому что…</span></div>
-            ${t.comments.filter(c=>c.type==='pro'||!c.type).map(c=>`<div class="comment"><span class="c-who">${c.who}<span class="c-dept">${deptOf(c.who)}</span></span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('') || '<div class="arg-empty">—</div>'}
-          </div>
-          <div class="arg-col con">
-            <div class="arg-head"><span>ПРОТИВ</span><span>потому что…</span></div>
-            ${t.comments.filter(c=>c.type==='con').map(c=>`<div class="comment"><span class="c-who">${c.who}<span class="c-dept">${deptOf(c.who)}</span></span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('') || '<div class="arg-empty">—</div>'}
-          </div>
+          <div class="arg-col pro"><div class="arg-head"><span>ЗА</span><span>потому что…</span></div>${cmts(pro)}</div>
+          <div class="arg-col con"><div class="arg-head"><span>ПРОТИВ</span><span>потому что…</span></div>${cmts(con)}</div>
         </div>
         <div class="arg-col q arg-block-q">
           <div class="arg-head"><span>ВОПРОСЫ К ТЕЗИСУ</span><span>что непонятно</span></div>
-          ${t.comments.filter(c=>c.type==='q').map(c=>`<div class="comment"><span class="c-who">${c.who}<span class="c-dept">${deptOf(c.who)}</span></span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('') || '<div class="arg-empty">—</div>'}
+          ${cmts(qq)}
         </div>
         <div class="comment-input">
           <div class="side-toggle">
@@ -590,10 +766,12 @@ function renderBoard(){
 }
 
 function renderNotes(){
+  if(!user || user.role!=='admin') return;
+  const notes = (state && state.notes) ? state.notes : [];
   notesCountEl.textContent = notes.length;
   notesListEl.innerHTML = '';
   if(!notes.length){
-    notesListEl.innerHTML = '<div class="empty-hint">Пока пусто. Пишите черновики тезисов — потом один клик, и тезис улетает на общую доску.</div>';
+    notesListEl.innerHTML = '<div class="empty-hint">Пока пусто. Пишите черновики тезисов — или ждите предложений от команды.</div>';
     return;
   }
   notes.forEach(n=>{
@@ -601,7 +779,7 @@ function renderNotes(){
     el.className = 'note-item' + (n.published ? ' published' : '');
     el.innerHTML = `
       <div style="flex:1">
-        ${n.fromName ? `<div class="note-from">Предложено · ${n.fromName}${n.fromDept ? ' · ' + n.fromDept : ''}</div>` : ''}
+        ${n.fromName ? `<div class="note-from">Предложено · ${escapeHtml(n.fromName)}${n.fromDept ? ' · ' + escapeHtml(n.fromDept) : ''}</div>` : ''}
         <div class="note-text">${escapeHtml(n.text)}</div>
         <div class="note-time">${n.time}${n.published ? ' · опубликовано на доске' : ''}</div>
       </div>
@@ -610,44 +788,42 @@ function renderNotes(){
   });
 }
 
-function escapeHtml(s){
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function renderPresence(){
+  const box = document.getElementById('presence');
+  const list = state ? state.presence : [];
+  box.innerHTML = list.map(p=>{
+    const me = p.name===user.name ? ' me' : '';
+    const ini = escapeHtml(p.name.slice(0,2).toUpperCase());
+    const dt = p.dept ? `<span class="dept-tag" style="margin-right:4px">${escapeHtml(p.dept)}</span>` : '';
+    return `${dt}<div class="avatar${me}" title="${escapeHtml(p.name)} · ${escapeHtml(p.dept||'')}">${ini}</div>`;
+  }).join('');
 }
+
+function renderAll(){ renderBoard(); renderNotes(); renderPresence(); }
 
 /* ================= ACTIONS ================= */
 const noteInput = document.getElementById('noteInput');
-
 function addNote(){
   const text = noteInput.value.trim();
   if(!text) return;
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2,'0');
-  const mm = String(now.getMinutes()).padStart(2,'0');
-  notes.unshift({ id:Date.now(), text, time:hh+':'+mm, published:false });
+  send({t:'note.add', text});
   noteInput.value = '';
-  renderNotes();
 }
 document.getElementById('addNoteBtn').addEventListener('click', addNote);
 noteInput.addEventListener('keydown', e=>{
   if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); addNote(); }
 });
 
-/* предложение тезиса от слушателя -> очередь админа */
 const proposeInput = document.getElementById('proposeInput');
-function proposeThesis(fromName, fromDept, text){
-  text = (text ?? proposeInput.value).trim();
+function proposeThesis(){
+  const text = proposeInput.value.trim();
   if(!text) return;
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2,'0');
-  const mm = String(now.getMinutes()).padStart(2,'0');
-  notes.unshift({ id:Date.now(), text, time:hh+':'+mm, published:false,
-                  fromName:fromName ?? userName(), fromDept:fromDept ?? (user ? user.dept : '') });
+  send({t:'propose', text});
   proposeInput.value = '';
   proposeInput.placeholder = 'Отправлено админу на модерацию ✓';
   setTimeout(()=>{ proposeInput.placeholder = 'У вас есть свой тезис? Предложите — админ получит на модерацию…'; }, 2200);
-  renderNotes();
 }
-document.getElementById('proposeBtn').addEventListener('click', ()=>proposeThesis());
+document.getElementById('proposeBtn').addEventListener('click', proposeThesis);
 proposeInput.addEventListener('keydown', e=>{
   if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); proposeThesis(); }
 });
@@ -655,13 +831,7 @@ proposeInput.addEventListener('keydown', e=>{
 notesListEl.addEventListener('click', e=>{
   const btn = e.target.closest('.post-btn');
   if(!btn) return;
-  const note = notes.find(n=>n.id == btn.dataset.id);
-  if(!note || note.published) return;
-  note.published = true;
-  theses.unshift({ id:nextId++, text:note.text, author:note.fromName || userName(), status:'draft', votes:{}, myVote:null, comments:[] });
-  renderNotes();
-  renderBoard();
-  boardEl.parentElement.scrollTop = 0;
+  send({t:'note.publish', id:btn.dataset.id});
 });
 
 boardEl.addEventListener('click', e=>{
@@ -675,50 +845,49 @@ boardEl.addEventListener('click', e=>{
     return;
   }
   const btn = e.target.closest('[data-act]');
-  if(!btn) return;
+  if(!btn || !state) return;
   const card = btn.closest('.thesis');
   const idx = Array.from(boardEl.children).indexOf(card);
-  const t = theses[idx];
+  const t = state.theses[idx];
   if(!t) return;
-
   const act = btn.dataset.act;
   if(act==='vote'){
     const v = parseInt(btn.dataset.v,10);
-    if(t.myVote===v){ delete t.votes[userName()]; t.myVote=null; }
-    else { t.votes[userName()]=v; t.myVote=v; }
+    send({t:'vote', id:t.id, v: t.votes[user.name]===v ? null : v});
   }
-  if(act==='status'){ t.status = nextStatus[t.status]; }
+  if(act==='status'){ send({t:'status', id:t.id}); }
   if(act==='toggle'){ btn.nextElementSibling.classList.toggle('open'); return; }
   if(act==='comment'){
     const input = card.querySelector('[data-role="cinput"]');
     const text = input.value.trim();
     if(!text) return;
     const side = card.querySelector('.side-btn.active')?.dataset.side || 'pro';
-    t.comments.push({who:userName(), text, type:side});
-  }
-  renderBoard();
-  if(act==='comment'){
-    const c = boardEl.children[idx].querySelector('.comments');
-    c.classList.add('open');
-    c.querySelector('[data-role="cinput"]').focus();
+    send({t:'comment', id:t.id, text, ctype:side});
+    input.value = '';
   }
 });
 
-/* ================= SIMULATION: звонок идёт ================= */
+/* ================= LIVE TIMER ================= */
+setInterval(()=>{
+  const sec = Math.floor((Date.now()-meetingStart)/1000);
+  const h = String(Math.floor(sec/3600)).padStart(2,'0');
+  const m = String(Math.floor(sec/60)%60).padStart(2,'0');
+  const s = String(sec%60).padStart(2,'0');
+  document.getElementById('liveTimer').textContent = `${h}:${m}:${s}`;
+}, 1000);
+
+/* ================= TRANSCRIPT (косметика) ================= */
 const transcript = [
   ['Марина','Я всё ещё не понимаю, зачем нам пять каналов распределения, если мы не тянем ни один.'],
   ['Дима','Если писать каждый день, качество упадёт. Лучше два сильных текста в неделю.'],
   ['Аня','SEO не про объём, а про регулярность. Один текст в день — минимум для индексации.'],
   ['Сергей','Мой болезненный опыт: мы запускали три канала сразу и все три умерли.'],
-  ['Олег','А давайте просто возьмём самый дешёвый канал и зальём туда всё?'],
-  ['Марина','Давайте без «давайте просто». Нам нужно решение, а не эксперимент ради эксперимента.'],
-  ['Дима','Я готов вести сайт, но мне нужен редактор. Одному не потяну.'],
-  ['Аня','Редактора можно взять на аутрич — вопрос бюджета, а не ресурса.'],
 ];
 let trIdx = 0;
-function cycleTranscript(){
+setInterval(()=>{
   const who = document.getElementById('trWho');
   const say = document.getElementById('trSay');
+  if(!who) return;
   say.classList.add('fade');
   setTimeout(()=>{
     trIdx = (trIdx+1) % transcript.length;
@@ -726,87 +895,15 @@ function cycleTranscript(){
     say.textContent = transcript[trIdx][1];
     say.classList.remove('fade');
   }, 350);
-}
-setInterval(cycleTranscript, 4200);
+}, 4200);
 
-/* Симуляция: участники голосуют и комментируют сами */
-const simComments = [
-  {text:'Это самый дешёвый способ проверить гипотезу.', type:'pro'},
-  {text:'Поддерживаю, но с оговорками по срокам.', type:'pro'},
-  {text:'Можно проверить на пилоте за две недели.', type:'pro'},
-  {text:'Не уверен, что это сработает у нас с текущим ресурсом.', type:'con'},
-  {text:'Это уже обсуждали в прошлый раз — не сработало.', type:'con'},
-  {text:'Против, пока нет метрики, по которой поймём, что получилось.', type:'con'},
-  {text:'А кто конкретно отвечает за это?', type:'q'},
-  {text:'Это про все каналы сразу или только про сайт?', type:'q'},
-  {text:'Когда дедлайн? Без даты это декларация.', type:'q'},
-];
-/* Симуляция: участники иногда предлагают свои тезисы */
-const simProposals = [
-  'Выделить отдельный бюджет на тесты, иначе все обсуждения теоретические',
-  'Пригласить на следующую встречу человека из продаж — он знает реальный контент-запрос',
-  'Писать контент не «про продукт», а про боли клиента',
-];
-setInterval(()=>{
-  if(!user || user.role!=='admin') return; // предложения заметны админу
-  const p = participants[Math.floor(Math.random()*participants.length)];
-  proposeThesis(p, depts[p], simProposals[Math.floor(Math.random()*simProposals.length)]);
-}, 15000);
-
-setInterval(()=>{
-  if(!theses.length) return;
-  if(Math.random() < 0.55){
-    const t = theses[Math.floor(Math.random()*theses.length)];
-    const p = participants[Math.floor(Math.random()*participants.length)];
-    if(!(p in t.votes)){
-      t.votes[p] = [1,1,0,-1][Math.floor(Math.random()*4)];
-      renderBoard();
-    }
-  } else {
-    const t = theses[Math.floor(Math.random()*theses.length)];
-    const p = participants[Math.floor(Math.random()*participants.length)];
-    const c = simComments[Math.floor(Math.random()*simComments.length)];
-    t.comments.push({who:p, text:c.text, type:c.type});
-    renderBoard();
-  }
-}, 6000);
-
-/* ================= JOIN ================= */
-let pickedRole = 'participant';
-document.querySelectorAll('.role').forEach(b=>{
-  b.addEventListener('click', ()=>{
-    document.querySelectorAll('.role').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active');
-    pickedRole = b.dataset.role;
-  });
-});
-
-function join(){
-  const nameInput = document.getElementById('joinName');
-  const name = nameInput.value.trim();
-  if(!name){ nameInput.focus(); nameInput.style.borderColor = '#d9ac18'; return; }
-  user = {
-    name,
-    dept: document.getElementById('joinDept').value,
-    role: pickedRole
-  };
-  document.getElementById('meAvatar').textContent = name.slice(0,2).toUpperCase();
-  const dt = document.getElementById('meDept');
-  dt.textContent = user.dept;
-  dt.style.display = 'inline-block';
-  if(user.role === 'admin'){
-    document.getElementById('mainGrid').classList.remove('solo');
-  }
-  document.getElementById('joinScreen').classList.add('hidden');
-}
-document.getElementById('joinBtn').addEventListener('click', join);
-document.getElementById('joinName').addEventListener('keydown', e=>{
-  if(e.key==='Enter') join();
-});
-
-/* ================= INIT ================= */
-renderNotes();
+/* ================= BOOT ================= */
 renderBoard();
+if(user){
+  document.getElementById('joinScreen').classList.add('hidden');
+  afterJoin();
+}
+</script>
 </script>
 </body>
 </html>
