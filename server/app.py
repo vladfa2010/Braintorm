@@ -167,7 +167,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 if not name:
                     continue
                 for th in room["theses"]:
-                    if th["id"] == data.get("id"):
+                    if th["id"] == data.get("id") and th["status"] != "closed":
                         v = data.get("v")
                         if v in (1, -1, 0):
                             th["votes"][name] = v
@@ -176,16 +176,37 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         break
 
             elif t == "status":
+                info = room["clients"].get(ws, {})
+                if info.get("role") != "admin":
+                    continue
                 order = {"draft": "vote", "vote": "final", "final": "draft"}
                 for th in room["theses"]:
-                    if th["id"] == data.get("id"):
+                    if th["id"] == data.get("id") and th["status"] != "closed":
                         th["status"] = order.get(th["status"], "draft")
                         break
+
+            elif t in ("thesis.rename", "thesis.delete", "thesis.close"):
+                info = room["clients"].get(ws, {})
+                if info.get("role") != "admin":
+                    continue
+                tid = data.get("id")
+                if t == "thesis.delete":
+                    room["theses"] = [th for th in room["theses"] if th["id"] != tid]
+                else:
+                    for th in room["theses"]:
+                        if th["id"] == tid:
+                            if t == "thesis.rename":
+                                txt = (data.get("text") or "").strip()[:2000]
+                                if txt:
+                                    th["text"] = txt
+                            elif t == "thesis.close":
+                                th["status"] = "closed" if th["status"] != "closed" else "vote"
+                            break
 
             elif t == "comment":
                 info = room["clients"].get(ws, {})
                 for th in room["theses"]:
-                    if th["id"] == data.get("id"):
+                    if th["id"] == data.get("id") and th["status"] != "closed":
                         th["comments"].append({
                             "who": info.get("name", "?"),
                             "dept": info.get("dept", ""),

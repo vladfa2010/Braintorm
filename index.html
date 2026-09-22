@@ -226,6 +226,43 @@
   .status:hover{border-color:var(--muted);}
   .status.vote{color:var(--accent);border-color:var(--accent);}
   .status.final{color:var(--bg);background:var(--text);border-color:var(--text);font-weight:500;}
+  .status.closed{color:var(--muted);border-color:var(--faint);cursor:default;}
+
+  /* ---------- THESIS MENU ---------- */
+  .thesis-top{position:relative;}
+  .menu-btn{
+    background:transparent;border:1px solid var(--line);color:var(--muted);
+    width:26px;height:26px;cursor:pointer;font-size:14px;line-height:1;
+    flex:0 0 auto;font-family:var(--fs-ui);
+    transition:color .15s,border-color .15s;
+  }
+  .menu-btn:hover{color:var(--text);border-color:var(--muted);}
+  .menu{
+    display:none;position:absolute;right:0;top:32px;
+    background:var(--surface);border:1px solid var(--line);
+    z-index:60;min-width:180px;
+  }
+  .menu.open{display:block;}
+  .menu-item{
+    display:block;width:100%;text-align:left;
+    background:transparent;border:none;color:var(--muted);
+    font-size:12px;padding:10px 14px;cursor:pointer;
+    font-family:var(--fs-ui);
+    border-bottom:1px solid var(--line-soft);
+    transition:color .15s,background .15s;
+  }
+  .menu-item:last-child{border-bottom:none;}
+  .menu-item:hover{background:var(--surface-2);color:var(--text);}
+  .menu-item.danger:hover{color:var(--accent);}
+
+  /* ---------- CLOSED THESIS ---------- */
+  .thesis.closed{opacity:.55;}
+  .thesis.closed .thesis-votes .vote-btn{pointer-events:none;opacity:.6;}
+  .closed-note{
+    font-family:var(--fs-mono);font-size:10px;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--faint);
+    padding:10px 14px;border-top:1px solid var(--line-soft);
+  }
   .thesis-author{
     margin-left:auto;
     font-family:var(--fs-mono);font-size:9px;color:var(--faint);
@@ -258,15 +295,30 @@
   .net.neg{color:var(--muted);}
 
   .comments-toggle{
-    background:transparent;border:none;border-top:1px solid var(--line-soft);
+    background:var(--surface-2);border:none;border-top:1px solid var(--line-soft);
     width:100%;text-align:left;
-    padding:8px 14px;cursor:pointer;
+    padding:10px 14px;cursor:pointer;
     font-family:var(--fs-mono);font-size:10px;
     letter-spacing:.1em;text-transform:uppercase;
-    color:var(--faint);
-    transition:color .15s;
+    color:var(--muted);
+    display:flex;align-items:center;gap:10px;
+    transition:background .15s;
   }
-  .comments-toggle:hover{color:var(--muted);}
+  .comments-toggle:hover{background:#1a1a1a;}
+  .ct-chips{display:flex;gap:6px;}
+  .chip{
+    font-family:var(--fs-mono);font-size:9px;letter-spacing:.1em;
+    padding:3px 8px;
+  }
+  .chip.pro{background:var(--text);color:var(--bg);font-weight:500;}
+  .chip.con{border:1px solid var(--accent);color:var(--accent);}
+  .chip.q{border:1px dashed var(--faint);color:var(--muted);}
+  .ct-label{color:var(--faint);}
+  .ct-chevron{
+    margin-left:auto;color:var(--faint);font-size:13px;
+    transition:transform .2s ease;font-family:var(--fs-ui);
+  }
+  .comments-toggle.open .ct-chevron{transform:rotate(180deg);color:var(--muted);}
   .comments{display:none;border-top:1px solid var(--line-soft);padding:10px 14px 12px;}
   .comments.open{display:block;}
   .comment{
@@ -584,7 +636,8 @@
 function escapeHtml(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
-const STATUS = { draft:'Черновик', vote:'На голосовании', final:'Финализировано' };
+const STATUS = { draft:'Черновик', vote:'На голосовании', final:'Финализировано', closed:'Закрыто' };
+let openThreads = new Set();
 
 /* ================= SESSION ================= */
 const qs = new URLSearchParams(location.search);
@@ -769,7 +822,7 @@ function renderBoard(){
   }
   theses.forEach(t=>{
     const card = document.createElement('div');
-    card.className = 'thesis' + (t.status==='final' ? ' finalized' : '');
+    card.className = 'thesis' + (t.status==='final' ? ' finalized' : '') + (t.status==='closed' ? ' closed' : '');
     const up = Object.values(t.votes).filter(v=>v===1).length;
     const dn = Object.values(t.votes).filter(v=>v===-1).length;
     const zr = Object.values(t.votes).filter(v=>v===0).length;
@@ -779,10 +832,20 @@ function renderBoard(){
     const con = t.comments.filter(c=>c.type==='con');
     const qq  = t.comments.filter(c=>c.type==='q');
     const cmts = arr => arr.map(c=>`<div class="comment"><span class="c-who">${escapeHtml(c.who)}<span class="c-dept">${escapeHtml(c.dept||'')}</span></span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('') || '<div class="arg-empty">—</div>';
+    const isClosed = t.status === 'closed';
+    const isAdmin = user.role === 'admin';
+    const openCls = openThreads.has(t.id) ? ' open' : '';
     card.innerHTML = `
       <div class="thesis-top">
-        <button class="status ${t.status==='vote'?'vote':''} ${t.status==='final'?'final':''}" data-act="status" title="Сменить статус">${STATUS[t.status]}</button>
+        <button class="status ${t.status==='vote'?'vote':''} ${t.status==='final'?'final':''} ${isClosed?'closed':''}" ${isAdmin && !isClosed ? 'data-act="status"' : ''} title="${isAdmin && !isClosed ? 'Сменить статус' : ''}">${STATUS[t.status]}</button>
         <span class="thesis-author">${escapeHtml(t.author)}</span>
+        ${isAdmin ? `
+        <button class="menu-btn" data-act="menu" title="Действия с тезисом">⋯</button>
+        <div class="menu">
+          <button class="menu-item" data-act="rename">Переименовать</button>
+          <button class="menu-item" data-act="close">${isClosed ? 'Открыть снова' : 'Закрыть тему'}</button>
+          <button class="menu-item danger" data-act="del">Удалить тезис</button>
+        </div>` : ''}
       </div>
       <div class="thesis-text">${escapeHtml(t.text)}</div>
       <div class="thesis-votes">
@@ -791,8 +854,16 @@ function renderBoard(){
         <button class="vote-btn ${myVote===0?'active':''}" data-act="vote" data-v="0"><span class="mark">0</span><span>${zr}</span></button>
         <span class="net ${net>0?'pos':net<0?'neg':''}">Σ ${net>0?'+':''}${net}</span>
       </div>
-      <button class="comments-toggle" data-act="toggle">Обсуждение · ЗА ${pro.length} / ПРОТИВ ${con.length} / ? ${qq.length}</button>
-      <div class="comments">
+      <button class="comments-toggle${openCls}" data-act="toggle">
+        <span class="ct-chips">
+          <span class="chip pro">ЗА ${pro.length}</span>
+          <span class="chip con">ПРОТИВ ${con.length}</span>
+          <span class="chip q">? ${qq.length}</span>
+        </span>
+        <span class="ct-label">Обсуждение</span>
+        <span class="ct-chevron">▾</span>
+      </button>
+      <div class="comments${openCls}">
         <div class="arg-groups">
           <div class="arg-col pro"><div class="arg-head"><span>ЗА</span><span>потому что…</span></div>${cmts(pro)}</div>
           <div class="arg-col con"><div class="arg-head"><span>ПРОТИВ</span><span>потому что…</span></div>${cmts(con)}</div>
@@ -801,7 +872,9 @@ function renderBoard(){
           <div class="arg-head"><span>ВОПРОСЫ К ТЕЗИСУ</span><span>что непонятно</span></div>
           ${cmts(qq)}
         </div>
-        <div class="comment-input">
+        ${isClosed
+          ? '<div class="closed-note">Тема закрыта модератором — обсуждение завершено</div>'
+          : `<div class="comment-input">
           <div class="side-toggle">
             <button class="side-btn active" data-side="pro">За</button>
             <button class="side-btn" data-side="con">Против</button>
@@ -809,7 +882,7 @@ function renderBoard(){
           </div>
           <input type="text" placeholder="потому что…" data-role="cinput">
           <button class="btn" data-act="comment">→</button>
-        </div>
+        </div>`}
       </div>`;
     boardEl.appendChild(card);
   });
@@ -902,18 +975,46 @@ boardEl.addEventListener('click', e=>{
   if(!t) return;
   const act = btn.dataset.act;
   if(act==='vote'){
+    if(t.status==='closed') return;
     const v = parseInt(btn.dataset.v,10);
     send({t:'vote', id:t.id, v: t.votes[user.name]===v ? null : v});
   }
   if(act==='status'){ send({t:'status', id:t.id}); }
-  if(act==='toggle'){ btn.nextElementSibling.classList.toggle('open'); return; }
+  if(act==='toggle'){
+    if(openThreads.has(t.id)) openThreads.delete(t.id); else openThreads.add(t.id);
+    btn.classList.toggle('open');
+    btn.nextElementSibling.classList.toggle('open');
+    return;
+  }
+  if(act==='menu'){
+    const menu = btn.nextElementSibling;
+    const wasOpen = menu.classList.contains('open');
+    boardEl.querySelectorAll('.menu.open').forEach(m=>m.classList.remove('open'));
+    if(!wasOpen) menu.classList.add('open');
+    return;
+  }
+  if(act==='rename'){
+    const text = prompt('Новый текст тезиса:', t.text);
+    if(text && text.trim()) send({t:'thesis.rename', id:t.id, text:text.trim()});
+  }
+  if(act==='close'){ send({t:'thesis.close', id:t.id}); }
+  if(act==='del'){
+    if(confirm('Удалить тезис вместе с голосами и обсуждением?')) send({t:'thesis.delete', id:t.id});
+  }
   if(act==='comment'){
+    if(t.status==='closed') return;
     const input = card.querySelector('[data-role="cinput"]');
     const text = input.value.trim();
     if(!text) return;
     const side = card.querySelector('.side-btn.active')?.dataset.side || 'pro';
     send({t:'comment', id:t.id, text, ctype:side});
     input.value = '';
+  }
+});
+
+document.addEventListener('click', e=>{
+  if(!e.target.closest('.menu') && !e.target.closest('.menu-btn')){
+    boardEl.querySelectorAll('.menu.open').forEach(m=>m.classList.remove('open'));
   }
 });
 
