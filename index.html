@@ -208,8 +208,14 @@
     border:1px solid var(--line);
     background:var(--surface);
     margin-bottom:12px;
-    animation:slidein .3s ease;
   }
+  .thesis.new-card{animation:slidein .3s ease;}
+  @keyframes contourGlow{
+    0%{box-shadow:0 0 0 0 rgba(217,172,24,0);}
+    35%{box-shadow:0 0 0 2px rgba(217,172,24,.85), 0 0 26px rgba(217,172,24,.30);}
+    100%{box-shadow:0 0 0 0 rgba(217,172,24,0);}
+  }
+  .thesis.glow{animation:contourGlow .85s ease-out 3;}
   .thesis.finalized{border-color:var(--faint);}
   .thesis-top{
     display:flex;align-items:center;gap:10px;
@@ -812,30 +818,29 @@ const boardCountEl = document.getElementById('boardCount');
 
 function netScore(t){ return Object.values(t.votes).reduce((a,b)=>a+b,0); }
 
-function renderBoard(){
-  const theses = state ? state.theses : [];
-  boardCountEl.textContent = theses.length + (theses.length===1?' тема':' тем');
-  boardEl.innerHTML = '';
-  if(!theses.length){
-    boardEl.innerHTML = '<div class="board-empty">Доска пуста.<br>Опубликуйте первый тезис из заметок — кнопка «+» на заметке,<br>или участник предложит свой через поле выше.</div>';
-    return;
-  }
-  theses.forEach(t=>{
-    const card = document.createElement('div');
-    card.className = 'thesis' + (t.status==='final' ? ' finalized' : '') + (t.status==='closed' ? ' closed' : '');
-    const up = Object.values(t.votes).filter(v=>v===1).length;
-    const dn = Object.values(t.votes).filter(v=>v===-1).length;
-    const zr = Object.values(t.votes).filter(v=>v===0).length;
-    const net = netScore(t);
-    const myVote = t.votes[user.name];
-    const pro = t.comments.filter(c=>c.type==='pro');
-    const con = t.comments.filter(c=>c.type==='con');
-    const qq  = t.comments.filter(c=>c.type==='q');
-    const cmts = arr => arr.map(c=>`<div class="comment"><span class="c-who">${escapeHtml(c.who)}<span class="c-dept">${escapeHtml(c.dept||'')}</span></span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('') || '<div class="arg-empty">—</div>';
-    const isClosed = t.status === 'closed';
-    const isAdmin = user.role === 'admin';
-    const openCls = openThreads.has(t.id) ? ' open' : '';
-    card.innerHTML = `
+/* ---- DOM-кэш: неизменные карточки не пересобираются (никаких морганий) ---- */
+let cardCache = new Map();       // thesisId -> {el, hash}
+let lastCommentCounts = new Map();
+let noteCache = new Map();       // noteId -> {el, hash}
+let commentDrafts = new Map();   // thesisId -> {text, side}
+let lastPresenceJson = '';
+
+function buildCard(t){
+  const card = document.createElement('div');
+  card.className = 'thesis' + (t.status==='final' ? ' finalized' : '') + (t.status==='closed' ? ' closed' : '');
+  const up = Object.values(t.votes).filter(v=>v===1).length;
+  const dn = Object.values(t.votes).filter(v=>v===-1).length;
+  const zr = Object.values(t.votes).filter(v=>v===0).length;
+  const net = netScore(t);
+  const myVote = t.votes[user.name];
+  const pro = t.comments.filter(c=>c.type==='pro');
+  const con = t.comments.filter(c=>c.type==='con');
+  const qq  = t.comments.filter(c=>c.type==='q');
+  const cmts = arr => arr.map(c=>`<div class="comment"><span class="c-who">${escapeHtml(c.who)}<span class="c-dept">${escapeHtml(c.dept||'')}</span></span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('') || '<div class="arg-empty">—</div>';
+  const isClosed = t.status === 'closed';
+  const isAdmin = user.role === 'admin';
+  const openCls = openThreads.has(t.id) ? ' open' : '';
+  card.innerHTML = `
       <div class="thesis-top">
         <button class="status ${t.status==='vote'?'vote':''} ${t.status==='final'?'final':''} ${isClosed?'closed':''}" ${isAdmin && !isClosed ? 'data-act="status"' : ''} title="${isAdmin && !isClosed ? 'Сменить статус' : ''}">${STATUS[t.status]}</button>
         <span class="thesis-author">${escapeHtml(t.author)}</span>
@@ -876,7 +881,7 @@ function renderBoard(){
           ? '<div class="closed-note">Тема закрыта модератором — обсуждение завершено</div>'
           : `<div class="comment-input">
           <div class="side-toggle">
-            <button class="side-btn active" data-side="pro">За</button>
+            <button class="side-btn" data-side="pro">За</button>
             <button class="side-btn" data-side="con">Против</button>
             <button class="side-btn" data-side="q">Вопрос</button>
           </div>
@@ -884,36 +889,104 @@ function renderBoard(){
           <button class="btn" data-act="comment">→</button>
         </div>`}
       </div>`;
-    boardEl.appendChild(card);
+  // восстановить неотправленный черновик комментария
+  const draft = commentDrafts.get(t.id);
+  if(draft){
+    const inp = card.querySelector('[data-role="cinput"]');
+    if(inp){
+      inp.value = draft.text;
+      card.querySelectorAll('.side-btn').forEach(b=>b.classList.toggle('active', b.dataset.side===draft.side));
+    } else {
+      commentDrafts.delete(t.id);
+    }
+  }
+  return card;
+}
+
+function renderBoard(){
+  const theses = state ? state.theses : [];
+  boardCountEl.textContent = theses.length + (theses.length===1?' тема':' тем');
+  if(!theses.length){
+    boardEl.innerHTML = '<div class="board-empty">Доска пуста.<br>Опубликуйте первый тезис из заметок — кнопка «+» на заметке,<br>или участник предложит свой через поле выше.</div>';
+    cardCache.clear();
+    return;
+  }
+  // фокус и позиция в поле комментария — сохранить при перерисовке
+  const ae = document.activeElement;
+  let focusTid = null, focusPos = 0;
+  if(ae && ae.dataset && ae.dataset.role==='cinput'){
+    const c = ae.closest('.thesis');
+    const idx = Array.from(boardEl.children).indexOf(c);
+    if(state && state.theses[idx]){ focusTid = state.theses[idx].id; focusPos = ae.selectionStart || 0; }
+  }
+  const seen = new Set();
+  theses.forEach(t=>{
+    seen.add(t.id);
+    const hash = JSON.stringify(t) + (openThreads.has(t.id) ? '1' : '0');
+    let c = cardCache.get(t.id);
+    const isNew = !c;
+    if(!c || c.hash !== hash){
+      const el = buildCard(t);
+      if(!isNew) el.classList.add('new-card');
+      // свечение при новых аргументах/вопросах
+      const prev = lastCommentCounts.get(t.id);
+      if(prev !== undefined && t.comments.length > prev){
+        el.classList.add('glow');
+        setTimeout(()=>el.classList.remove('glow'), 2700);
+      }
+      cardCache.set(t.id, {el, hash});
+      if(focusTid === t.id){
+        const inp = el.querySelector('[data-role="cinput"]');
+        if(inp){ inp.focus(); try{ inp.setSelectionRange(focusPos, focusPos); }catch(e){} }
+      }
+    }
+    lastCommentCounts.set(t.id, t.comments.length);
+    boardEl.appendChild(cardCache.get(t.id).el); // appendChild лишь двигает существующий узел — без перерисовки
   });
+  for(const [id, c] of cardCache){
+    if(!seen.has(id)){ c.el.remove(); cardCache.delete(id); lastCommentCounts.delete(id); commentDrafts.delete(id); }
+  }
 }
 
 function renderNotes(){
   if(!user || user.role!=='admin') return;
   const notes = (state && state.notes) ? state.notes : [];
   notesCountEl.textContent = notes.length;
-  notesListEl.innerHTML = '';
   if(!notes.length){
     notesListEl.innerHTML = '<div class="empty-hint">Пока пусто. Пишите черновики тезисов — или ждите предложений от команды.</div>';
+    noteCache.clear();
     return;
   }
+  const seen = new Set();
   notes.forEach(n=>{
-    const el = document.createElement('div');
-    el.className = 'note-item' + (n.published ? ' published' : '');
-    el.innerHTML = `
+    seen.add(n.id);
+    const hash = JSON.stringify(n);
+    let c = noteCache.get(n.id);
+    if(!c || c.hash !== hash){
+      const el = document.createElement('div');
+      el.className = 'note-item' + (n.published ? ' published' : '');
+      el.innerHTML = `
       <div style="flex:1">
         ${n.fromName ? `<div class="note-from">Предложено · ${escapeHtml(n.fromName)}${n.fromDept ? ' · ' + escapeHtml(n.fromDept) : ''}</div>` : ''}
         <div class="note-text">${escapeHtml(n.text)}</div>
         <div class="note-time">${n.time}${n.published ? ' · опубликовано на доске' : ''}</div>
       </div>
       <button class="post-btn" data-id="${n.id}" title="Опубликовать на доске">+</button>`;
-    notesListEl.appendChild(el);
+      noteCache.set(n.id, {el, hash});
+    }
+    notesListEl.appendChild(noteCache.get(n.id).el);
   });
+  for(const [id, c] of noteCache){
+    if(!seen.has(id)){ c.el.remove(); noteCache.delete(id); }
+  }
 }
 
 function renderPresence(){
   const box = document.getElementById('presence');
   const list = state ? state.presence : [];
+  const sig = JSON.stringify(list) + user.name;
+  if(sig === lastPresenceJson) return;
+  lastPresenceJson = sig;
   box.innerHTML = list.map(p=>{
     const me = p.name===user.name ? ' me' : '';
     const ini = escapeHtml(p.name.slice(0,2).toUpperCase());
@@ -965,6 +1038,12 @@ boardEl.addEventListener('click', e=>{
     const inp = sideBtn.closest('.comment-input').querySelector('[data-role="cinput"]');
     const hints = {pro:'за, потому что…', con:'против, потому что…', q:'что непонятно в тезисе?'};
     inp.placeholder = hints[sideBtn.dataset.side] || 'потому что…';
+    if(state){
+      const card = sideBtn.closest('.thesis');
+      const idx = Array.from(boardEl.children).indexOf(card);
+      const t = state.theses[idx];
+      if(t) commentDrafts.set(t.id, {text: inp.value, side: sideBtn.dataset.side});
+    }
     return;
   }
   const btn = e.target.closest('[data-act]');
@@ -1008,8 +1087,20 @@ boardEl.addEventListener('click', e=>{
     if(!text) return;
     const side = card.querySelector('.side-btn.active')?.dataset.side || 'pro';
     send({t:'comment', id:t.id, text, ctype:side});
-    input.value = '';
+    commentDrafts.delete(t.id);
   }
+});
+
+/* черновики комментариев — переживают перерисовку карточки */
+boardEl.addEventListener('input', e=>{
+  const inp = e.target.closest('[data-role="cinput"]');
+  if(!inp || !state) return;
+  const card = inp.closest('.thesis');
+  const idx = Array.from(boardEl.children).indexOf(card);
+  const t = state.theses[idx];
+  if(!t) return;
+  const side = card.querySelector('.side-btn.active')?.dataset.side || 'pro';
+  commentDrafts.set(t.id, {text: inp.value, side});
 });
 
 document.addEventListener('click', e=>{

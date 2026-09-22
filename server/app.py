@@ -9,7 +9,23 @@ from pathlib import Path
 from aiohttp import web
 
 STATIC_DIR = Path(__file__).resolve().parent.parent
+STATE_FILE = Path(__file__).resolve().parent / "rooms.json"
 rooms: dict[str, dict] = {}
+
+
+def persist():
+    data = [{k: v for k, v in r.items() if k != "clients"} for r in rooms.values()]
+    STATE_FILE.write_text(json.dumps(data, ensure_ascii=False))
+
+
+def load_rooms():
+    if STATE_FILE.exists():
+        try:
+            for r in json.loads(STATE_FILE.read_text()):
+                r["clients"] = {}
+                rooms[r["id"]] = r
+        except Exception:
+            pass
 
 
 def new_room_id() -> str:
@@ -82,6 +98,7 @@ async def list_rooms(request: web.Request) -> web.Response:
 async def create_room(request: web.Request) -> web.Response:
     data = await request.json() if request.can_read_body else {}
     room = make_room((data.get("title") or "").strip())
+    persist()
     return web.json_response({"id": room["id"], "title": room["title"]})
 
 
@@ -94,6 +111,7 @@ async def delete_room(request: web.Request) -> web.Response:
                 await ws.close()
             except Exception:
                 pass
+        persist()
     return web.json_response({"ok": room is not None})
 
 
@@ -215,6 +233,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         })
                         break
 
+            persist()
             await broadcast(room)
     finally:
         room["clients"].pop(ws, None)
@@ -235,6 +254,8 @@ app.router.add_delete("/api/rooms/{id}", delete_room)
 app.router.add_get("/ws", ws_handler)
 app.router.add_get("/", index)
 app.router.add_static("/", STATIC_DIR)
+
+load_rooms()
 
 if __name__ == "__main__":
     web.run_app(app, host="127.0.0.1", port=8787)
