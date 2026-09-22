@@ -446,6 +446,25 @@
     font-family:var(--fs-mono);font-size:10px;color:var(--muted);
   }
   .rooms-empty{color:var(--faint);font-size:12px;padding:20px;border:1px dashed var(--line);text-align:center;line-height:1.7;}
+  .room-del{
+    background:transparent;border:1px solid var(--line);color:var(--faint);
+    width:24px;height:24px;cursor:pointer;font-size:11px;line-height:1;
+    font-family:var(--fs-ui);flex:0 0 auto;
+    transition:color .15s,border-color .15s;
+  }
+  .room-del:hover{color:var(--accent);border-color:var(--accent);}
+
+  /* ---------- TOAST ---------- */
+  .toast{
+    position:fixed;bottom:26px;left:50%;
+    transform:translateX(-50%) translateY(90px);
+    background:var(--text);color:var(--bg);
+    font-family:var(--fs-mono);font-size:11px;letter-spacing:.06em;
+    padding:11px 20px;z-index:300;
+    transition:transform .3s ease;pointer-events:none;
+    max-width:90vw;text-align:center;
+  }
+  .toast.on{transform:translateX(-50%) translateY(0);}
 
   /* scrollbar */
   ::-webkit-scrollbar{width:8px;}
@@ -512,6 +531,8 @@
     <div class="rooms-list" id="roomsList"></div>
   </div>
 </div>
+
+<div class="toast" id="toast"></div>
 
 <main class="solo" id="mainGrid">
   <!-- ============ LEFT: ADMIN NOTES ============ -->
@@ -602,11 +623,28 @@ document.getElementById('copyLinkBtn').addEventListener('click', ()=>{
     setTimeout(()=>b.textContent='Скопировать ссылку', 1600);
   });
 });
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('on');
+  setTimeout(()=>t.classList.remove('on'), 2600);
+}
+
+let creating = false;
 async function createRoom(){
-  const r = await fetch('/api/rooms', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({})});
-  const d = await r.json();
-  addTab(d.id, d.title);
-  location.href = '?r='+d.id;
+  if(creating) return;
+  creating = true;
+  try{
+    const r = await fetch('/api/rooms', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({})});
+    const d = await r.json();
+    addTab(d.id, d.title);
+    const url = location.origin + '/?r=' + d.id;
+    try{ await navigator.clipboard.writeText(url); }catch(e){}
+    showToast('Диалог создан · ссылка уже в буфере — отправьте её команде');
+    setTimeout(()=>{ location.href = '?r='+d.id; }, 800);
+  } finally {
+    creating = false;
+  }
 }
 document.getElementById('newRoomBtn').addEventListener('click', createRoom);
 document.getElementById('createRoomBtn').addEventListener('click', createRoom);
@@ -633,8 +671,16 @@ async function openRoomsManager(){
         <div class="r-title">${escapeHtml(rm.title)}</div>
         <div class="r-id">?r=${rm.id}</div>
       </div>
-      <div class="r-meta">${rm.theses} тем · ${rm.online} онлайн<br>${d.toLocaleDateString('ru-RU')} ${d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</div>`;
+      <div class="r-meta">${rm.theses} тем · ${rm.online} онлайн<br>${d.toLocaleDateString('ru-RU')} ${d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</div>
+      <button class="room-del" title="Удалить диалог">✕</button>`;
     row.onclick = ()=>{ addTab(rm.id, rm.title); location.href='?r='+rm.id; };
+    row.querySelector('.room-del').addEventListener('click', async e=>{
+      e.stopPropagation();
+      await fetch('/api/rooms/'+rm.id, {method:'DELETE'});
+      tabs = tabs.filter(t=>t.id!==rm.id); saveTabs();
+      showToast('Диалог удалён');
+      openRoomsManager();
+    });
     list.appendChild(row);
   });
 }
@@ -688,11 +734,15 @@ function connect(){
   ws.onmessage = ev=>{
     const msg = JSON.parse(ev.data);
     if(msg.t==='state'){
+      const firstState = !state;
       state = msg.room;
       meetingStart = (state.createdAt||0)*1000 || meetingStart;
       document.querySelector('.call-title').textContent =
         state.title + ' · ссылка для команды ?r=' + roomId;
       renderAll();
+      if(firstState){
+        showToast('Вы в диалоге №' + roomId + ' · «Скопировать ссылку» — справа вверху');
+      }
     } else if(msg.t==='error'){
       document.querySelector('.call-title').textContent = 'Диалог не найден — создайте новый';
     }

@@ -85,6 +85,18 @@ async def create_room(request: web.Request) -> web.Response:
     return web.json_response({"id": room["id"], "title": room["title"]})
 
 
+async def delete_room(request: web.Request) -> web.Response:
+    rid = request.match_info["id"]
+    room = rooms.pop(rid, None)
+    if room:
+        for ws in list(room["clients"]):
+            try:
+                await ws.close()
+            except Exception:
+                pass
+    return web.json_response({"ok": room is not None})
+
+
 # ---------- WebSocket ----------
 
 async def ws_handler(request: web.Request) -> web.WebSocketResponse:
@@ -198,6 +210,7 @@ async def index(request: web.Request) -> web.FileResponse:
 app = web.Application()
 app.router.add_get("/api/rooms", list_rooms)
 app.router.add_post("/api/rooms", create_room)
+app.router.add_delete("/api/rooms/{id}", delete_room)
 app.router.add_get("/ws", ws_handler)
 app.router.add_get("/", index)
 app.router.add_static("/", STATIC_DIR)
