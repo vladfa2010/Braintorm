@@ -288,6 +288,8 @@
   }
   .arg-col.pro .arg-head{background:var(--text);color:var(--bg);font-weight:500;}
   .arg-col.con .arg-head{border:1px solid var(--accent);color:var(--accent);}
+  .arg-col.q .arg-head{border:1px dashed var(--faint);color:var(--muted);}
+  .arg-block-q{margin-top:12px;border-top:1px solid var(--line-soft);padding-top:10px;}
   .arg-col .comment + .comment{border-top:1px solid var(--line-soft);}
   .arg-empty{color:var(--faint);font-size:11px;padding:6px 0;font-family:var(--fs-mono);letter-spacing:.04em;}
   .comment-input{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
@@ -302,6 +304,7 @@
   .side-btn:first-child{border-left:1px solid var(--line);}
   .side-btn.active[data-side="pro"]{background:var(--text);color:var(--bg);border-color:var(--text);}
   .side-btn.active[data-side="con"]{border-color:var(--accent);color:var(--accent);}
+  .side-btn.active[data-side="q"]{background:var(--faint);color:var(--bg);border-color:var(--faint);}
   .comment-input input{
     flex:1;background:var(--surface-2);border:1px solid var(--line);
     color:var(--text);font-family:var(--fs-ui);font-size:12px;
@@ -477,7 +480,8 @@ let theses = [
       {who:'Дима', text:'Каждый день — это 30 статей в месяц. У нас нет ресурса даже на 8.', type:'con'}
     ] },
   { id:2, text:'Отказаться от Telegram-канала и слить аудиторию в рассылку', author:'Вы', status:'draft',
-    votes:{'Марина':-1,'Аня':0}, myVote:null, comments:[] },
+    votes:{'Марина':-1,'Аня':0}, myVote:null,
+    comments:[{who:'Лена', text:'А что делать с 2 тысячами текущих подписчиков канала?', type:'q'}] },
   { id:3, text:'Сначала тестируем 2 канала, масштабируемся после 6 недель метрик', author:'Вы', status:'final',
     votes:{'Аня':1,'Марина':1,'Дима':1,'Сергей':1,'Олег':0,'Лена':1}, myVote:null,
     comments:[
@@ -539,22 +543,27 @@ function renderBoard(){
         <button class="vote-btn ${t.myVote===0?'active':''}" data-act="vote" data-v="0"><span class="mark">0</span><span>${zr}</span></button>
         <span class="net ${net>0?'pos':net<0?'neg':''}">Σ ${net>0?'+':''}${net}</span>
       </div>
-      <button class="comments-toggle" data-act="toggle">Аргументы · ЗА ${t.comments.filter(c=>c.type!=='con').length} / ПРОТИВ ${t.comments.filter(c=>c.type==='con').length}</button>
+      <button class="comments-toggle" data-act="toggle">Обсуждение · ЗА ${t.comments.filter(c=>c.type==='pro'||!c.type).length} / ПРОТИВ ${t.comments.filter(c=>c.type==='con').length} / ? ${t.comments.filter(c=>c.type==='q').length}</button>
       <div class="comments">
         <div class="arg-groups">
           <div class="arg-col pro">
             <div class="arg-head"><span>ЗА</span><span>потому что…</span></div>
-            ${t.comments.filter(c=>c.type!=='con').map(c=>`<div class="comment"><span class="c-who">${c.who}<span class="c-dept">${deptOf(c.who)}</span></span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('') || '<div class="arg-empty">—</div>'}
+            ${t.comments.filter(c=>c.type==='pro'||!c.type).map(c=>`<div class="comment"><span class="c-who">${c.who}<span class="c-dept">${deptOf(c.who)}</span></span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('') || '<div class="arg-empty">—</div>'}
           </div>
           <div class="arg-col con">
             <div class="arg-head"><span>ПРОТИВ</span><span>потому что…</span></div>
             ${t.comments.filter(c=>c.type==='con').map(c=>`<div class="comment"><span class="c-who">${c.who}<span class="c-dept">${deptOf(c.who)}</span></span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('') || '<div class="arg-empty">—</div>'}
           </div>
         </div>
+        <div class="arg-col q arg-block-q">
+          <div class="arg-head"><span>ВОПРОСЫ К ТЕЗИСУ</span><span>что непонятно</span></div>
+          ${t.comments.filter(c=>c.type==='q').map(c=>`<div class="comment"><span class="c-who">${c.who}<span class="c-dept">${deptOf(c.who)}</span></span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('') || '<div class="arg-empty">—</div>'}
+        </div>
         <div class="comment-input">
           <div class="side-toggle">
             <button class="side-btn active" data-side="pro">За</button>
             <button class="side-btn" data-side="con">Против</button>
+            <button class="side-btn" data-side="q">Вопрос</button>
           </div>
           <input type="text" placeholder="потому что…" data-role="cinput">
           <button class="btn" data-act="comment">→</button>
@@ -624,7 +633,8 @@ boardEl.addEventListener('click', e=>{
     sideBtn.closest('.side-toggle').querySelectorAll('.side-btn').forEach(b=>b.classList.remove('active'));
     sideBtn.classList.add('active');
     const inp = sideBtn.closest('.comment-input').querySelector('[data-role="cinput"]');
-    inp.placeholder = sideBtn.dataset.side==='con' ? 'против, потому что…' : 'за, потому что…';
+    const hints = {pro:'за, потому что…', con:'против, потому что…', q:'что непонятно в тезисе?'};
+    inp.placeholder = hints[sideBtn.dataset.side] || 'потому что…';
     return;
   }
   const btn = e.target.closest('[data-act]');
@@ -690,6 +700,9 @@ const simComments = [
   {text:'Не уверен, что это сработает у нас с текущим ресурсом.', type:'con'},
   {text:'Это уже обсуждали в прошлый раз — не сработало.', type:'con'},
   {text:'Против, пока нет метрики, по которой поймём, что получилось.', type:'con'},
+  {text:'А кто конкретно отвечает за это?', type:'q'},
+  {text:'Это про все каналы сразу или только про сайт?', type:'q'},
+  {text:'Когда дедлайн? Без даты это декларация.', type:'q'},
 ];
 setInterval(()=>{
   if(!theses.length) return;
