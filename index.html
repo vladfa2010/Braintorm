@@ -294,6 +294,64 @@
     text-align:center;padding:40px 20px;font-size:12px;line-height:1.7;
   }
 
+  /* ---------- JOIN SCREEN ---------- */
+  .join{
+    position:fixed;inset:0;z-index:100;
+    background:var(--bg);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .join.hidden{display:none;}
+  .join-card{
+    width:380px;
+    border:1px solid var(--line);
+    background:var(--surface);
+    padding:36px 36px 30px;
+  }
+  .join-sub{
+    color:var(--muted);font-size:12px;line-height:1.6;
+    margin:14px 0 26px;
+  }
+  .join-card label{
+    display:block;
+    font-family:var(--fs-mono);font-size:9px;
+    letter-spacing:.16em;text-transform:uppercase;
+    color:var(--faint);margin:18px 0 7px;
+  }
+  .join-card input,.join-card select{
+    width:100%;background:var(--surface-2);
+    border:1px solid var(--line);color:var(--text);
+    font-family:var(--fs-ui);font-size:13px;
+    padding:10px 12px;outline:none;
+    appearance:none;border-radius:0;
+  }
+  .join-card select{
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6' fill='%23545454'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center;
+  }
+  .join-card input:focus,.join-card select:focus{border-color:var(--faint);}
+  .join-card input::placeholder{color:var(--faint);}
+  .role-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .role{
+    background:var(--surface-2);border:1px solid var(--line);
+    color:var(--muted);text-align:left;cursor:pointer;
+    font-family:var(--fs-ui);font-size:12px;font-weight:500;
+    padding:10px 12px;line-height:1.4;
+    transition:border-color .15s,color .15s;
+  }
+  .role span{font-size:10px;color:var(--faint);font-weight:400;}
+  .role.active{border-color:var(--text);color:var(--text);}
+  .role.active span{color:var(--muted);}
+  .join-btn{width:100%;margin-top:28px;padding:12px;}
+  .dept-tag{
+    font-family:var(--fs-mono);font-size:9px;color:var(--faint);
+    letter-spacing:.1em;text-transform:uppercase;
+    border:1px solid var(--line);padding:2px 7px;
+  }
+  .c-dept{display:block;color:var(--faint);font-size:9px;margin-top:1px;letter-spacing:.04em;}
+
+  main.solo{grid-template-columns:1fr;}
+  main.solo .pane.left{display:none;}
+
   /* scrollbar */
   ::-webkit-scrollbar{width:8px;}
   ::-webkit-scrollbar-track{background:transparent;}
@@ -308,11 +366,37 @@
 </head>
 <body>
 
+<!-- ============ JOIN SCREEN ============ -->
+<div class="join" id="joinScreen">
+  <div class="join-card">
+    <div class="logo">РАССЛОЕНИЕ<em>/01</em></div>
+    <p class="join-sub">Второе окно звонка. Представьтесь — и общая доска тезисов откроется. Имя и отдел видит команда.</p>
+    <label>Имя</label>
+    <input id="joinName" type="text" placeholder="Например, Алина" autocomplete="off">
+    <label>Отдел</label>
+    <select id="joinDept">
+      <option>Маркетинг</option>
+      <option>Продукт</option>
+      <option>Разработка</option>
+      <option>Дизайн</option>
+      <option>Продажи</option>
+      <option>Аналитика</option>
+    </select>
+    <label>Роль на встрече</label>
+    <div class="role-row">
+      <button class="role active" data-role="participant" type="button">Участник<span>только доска и голоса</span></button>
+      <button class="role" data-role="admin" type="button">Модератор<span>заметки + доска</span></button>
+    </div>
+    <button class="btn primary join-btn" id="joinBtn">Войти на звонок</button>
+  </div>
+</div>
+
 <header>
   <div class="logo">РАССЛОЕНИЕ<em>/01</em></div>
   <div class="call-title">Брейншторм: контент-стратегия на Q4 — Zoom подключён</div>
   <div class="people">
-    <div class="avatar me">ВЫ</div>
+    <span class="dept-tag" id="meDept" style="display:none"></span>
+    <div class="avatar me" id="meAvatar">·</div>
     <div class="avatar">АК</div>
     <div class="avatar">МД</div>
     <div class="avatar">СП</div>
@@ -321,7 +405,7 @@
   <div class="live"><span class="dot"></span>LIVE · 00:42:17</div>
 </header>
 
-<main>
+<main class="solo" id="mainGrid">
   <!-- ============ LEFT: ADMIN NOTES ============ -->
   <section class="pane left">
     <div class="pane-head">
@@ -367,7 +451,7 @@ let theses = [
   { id:2, text:'Отказаться от Telegram-канала и слить аудиторию в рассылку', author:'Вы', status:'draft',
     votes:{'Марина':-1,'Аня':0}, myVote:null, comments:[] },
   { id:3, text:'Сначала тестируем 2 канала, масштабируемся после 6 недель метрик', author:'Вы', status:'final',
-    votes:{'Вы':1,'Аня':1,'Марина':1,'Дима':1,'Сергей':1,'Олег':0,'Лена':1}, myVote:1,
+    votes:{'Аня':1,'Марина':1,'Дима':1,'Сергей':1,'Олег':0,'Лена':1}, myVote:null,
     comments:[{who:'Марина',text:'Да, так мы не размажем ресурс.'},{who:'Сергей',text:'Согласен, но метрики надо зафиксить заранее.'}] },
 ];
 let nextId = 4;
@@ -376,6 +460,14 @@ const STATUS = { draft:'Черновик', vote:'На голосовании', f
 const nextStatus = { draft:'vote', vote:'final', final:'draft' };
 
 const participants = ['Аня','Дима','Марина','Сергей','Олег','Лена'];
+const depts = {Аня:'Маркетинг',Дима:'Разработка',Марина:'Продукт',Сергей:'Продажи',Олег:'Дизайн',Лена:'Аналитика'};
+let user = null;
+
+function userName(){ return user ? user.name : 'Вы'; }
+function deptOf(who){
+  if(user && who===user.name) return user.dept;
+  return depts[who] || '';
+}
 
 /* ================= RENDER ================= */
 const boardEl = document.getElementById('board');
@@ -406,7 +498,7 @@ function renderBoard(){
     card.innerHTML = `
       <div class="thesis-top">
         <button class="status ${t.status==='vote'?'vote':''} ${t.status==='final'?'final':''}" data-act="status" title="Сменить статус">${STATUS[t.status]}</button>
-        <span class="thesis-author">${t.author==='Вы'?'Админ · вы':'· '+t.author}</span>
+        <span class="thesis-author">${t.author==='Вы'?'Админ':t.author}</span>
       </div>
       <div class="thesis-text">${escapeHtml(t.text)}</div>
       <div class="thesis-votes">
@@ -417,7 +509,7 @@ function renderBoard(){
       </div>
       <button class="comments-toggle" data-act="toggle">Комментарии · ${t.comments.length}</button>
       <div class="comments">
-        ${t.comments.map(c=>`<div class="comment"><span class="c-who">${c.who}</span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('')}
+        ${t.comments.map(c=>`<div class="comment"><span class="c-who">${c.who}<span class="c-dept">${deptOf(c.who)}</span></span><span class="c-text">${escapeHtml(c.text)}</span></div>`).join('')}
         <div class="comment-input">
           <input type="text" placeholder="Ваш контраргумент или уточнение…" data-role="cinput">
           <button class="btn" data-act="comment">→</button>
@@ -475,7 +567,7 @@ notesListEl.addEventListener('click', e=>{
   const note = notes.find(n=>n.id == btn.dataset.id);
   if(!note || note.published) return;
   note.published = true;
-  theses.unshift({ id:nextId++, text:note.text, author:'Вы', status:'draft', votes:{}, myVote:null, comments:[] });
+  theses.unshift({ id:nextId++, text:note.text, author:userName(), status:'draft', votes:{}, myVote:null, comments:[] });
   renderNotes();
   renderBoard();
   boardEl.parentElement.scrollTop = 0;
@@ -492,8 +584,8 @@ boardEl.addEventListener('click', e=>{
   const act = btn.dataset.act;
   if(act==='vote'){
     const v = parseInt(btn.dataset.v,10);
-    if(t.myVote===v){ delete t.votes['Вы']; t.myVote=null; }
-    else { t.votes['Вы']=v; t.myVote=v; }
+    if(t.myVote===v){ delete t.votes[userName()]; t.myVote=null; }
+    else { t.votes[userName()]=v; t.myVote=v; }
   }
   if(act==='status'){ t.status = nextStatus[t.status]; }
   if(act==='toggle'){ btn.nextElementSibling.classList.toggle('open'); return; }
@@ -501,7 +593,7 @@ boardEl.addEventListener('click', e=>{
     const input = card.querySelector('[data-role="cinput"]');
     const text = input.value.trim();
     if(!text) return;
-    t.comments.push({who:'Вы', text});
+    t.comments.push({who:userName(), text});
   }
   renderBoard();
   if(act==='comment'){
@@ -560,6 +652,39 @@ setInterval(()=>{
     renderBoard();
   }
 }, 6000);
+
+/* ================= JOIN ================= */
+let pickedRole = 'participant';
+document.querySelectorAll('.role').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.role').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    pickedRole = b.dataset.role;
+  });
+});
+
+function join(){
+  const nameInput = document.getElementById('joinName');
+  const name = nameInput.value.trim();
+  if(!name){ nameInput.focus(); nameInput.style.borderColor = '#d9ac18'; return; }
+  user = {
+    name,
+    dept: document.getElementById('joinDept').value,
+    role: pickedRole
+  };
+  document.getElementById('meAvatar').textContent = name.slice(0,2).toUpperCase();
+  const dt = document.getElementById('meDept');
+  dt.textContent = user.dept;
+  dt.style.display = 'inline-block';
+  if(user.role === 'admin'){
+    document.getElementById('mainGrid').classList.remove('solo');
+  }
+  document.getElementById('joinScreen').classList.add('hidden');
+}
+document.getElementById('joinBtn').addEventListener('click', join);
+document.getElementById('joinName').addEventListener('keydown', e=>{
+  if(e.key==='Enter') join();
+});
 
 /* ================= INIT ================= */
 renderNotes();
